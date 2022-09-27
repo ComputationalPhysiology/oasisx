@@ -1,0 +1,53 @@
+[build-system] # Require setuptool version due to https://github.com/pypa/setuptools/issues/2938
+requires = ["setuptools>=61.0.0", "wheel"]
+
+
+[project] # See https://python-poetry.org/docs/pyproject/ for more keywords
+name = "mypackage" # Name of your package
+authors = [ # List of authors
+    {name = "Jørgen S. Dokken", email = "dokken@simula.no"}
+    ]
+version = "0.1.0" # Version number
+description = "Minimal package for adding two numbers" # Short description of package
+readme = "README.md" # Is used for the description field in your package, see: https://python-poetry.org/docs/pyproject/#readme
+requires-python = ">=3.8" # Set requirement for minimal python version
+license = {file = "LICENSE"} # Path to license file, see: https://spdx.org/licenses/ for options
+dependencies = [
+    'numpy'
+]
+
+
+[project.optional-dependencies]
+test = [
+   "flake8", # Checks code for consistency, see: https://flake8.pycqa.org/en/latest/user/error-codes.html
+   "mypy", # Makes sure that typing of input/output is consistent
+   "pytest", # To run test
+   "pytest-cov" # To create coverage reports
+]
+
+docs = [
+    "jupyter-book", # Required to build documentation
+    "jupytext", # Required to convert .py to .ipynb files
+]
+
+binder = [ # Required to interface with Binder when having a Dockerfile in root
+    "jupyterlab",
+    "notebook"
+]
+
+[tool.mypy]
+ignore_missing_imports = true # Does not show errors when importing untyped libraries
+exclude = [ # We only want mypy to consider files that are not generated in installing or building documentation
+    "docs/", 
+    "build/"
+]
+files = [  # Folder to which files that should be checked by mypy
+    "src",
+    "test"
+]
+
+[tool.pytest.ini_options]
+addopts = "--cov=mypackage --cov-report html --cov-report term-missing -v"
+testpaths = [
+    "test"
+]
