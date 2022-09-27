@@ -15,25 +15,15 @@ on:
     - cron: "0 8 * * *"
 jobs:
   check-code:
-    # This skips running the test if '[ci skip]' or '[skip ci]' is in the commit message
-    # if: "!(contains(github.event.head_commit.message, '[ci skip]') || contains(github.event.head_commit.message, '[skip ci]'))"
-
+  
     # Choose which operating system to run on, for more options see:
     # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
     runs-on: ubuntu-22.04
-
-    strategy:
-      matrix:
-        python-version: ["3.8", "3.9", "3.10"]
+    container: dolfinx/dolfinx:v0.5.1
 
     steps:
       # This action sets the current path to the root of your github repo
       - uses: actions/checkout@v3
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
 
       - name: "Install code"
         run: python -m pip install .[test]
@@ -47,19 +37,10 @@ jobs:
   test-code:
     # This code depends on the result of check-code
     needs: check-code
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        os: [ubuntu-22.04, windows-latest, macos-12]
-        python-version: ["3.8", "3.9", "3.10"]
+    runs-on:  ubuntu-22.04
+    container: dolfinx/dolfinx:v0.5.1
 
     steps:
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-
       - uses: actions/checkout@v3
 
       - name: "Install oasisx"
@@ -70,7 +51,6 @@ jobs:
           python -m pytest
 
       - name: Upload coverage report as artifact
-        if: matrix.os == 'ubuntu-22.04' && matrix.python-version == '3.10'
         uses: actions/upload-artifact@v3
         with:
           name: code-coverage-report
