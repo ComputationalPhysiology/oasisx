@@ -23,7 +23,7 @@ class Projector():
         A = inner(u, v) * dx
         b = inner(function, v) * dx
 
-    Args: 
+    Args:
         function: UFL expression of function to project
         space: Space to project function into
         bcs: List of BCS to apply to projection
