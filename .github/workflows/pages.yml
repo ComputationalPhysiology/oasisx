@@ -20,28 +20,20 @@ concurrency:
   group: "pages"
   cancel-in-progress: true
 
+env:
+  # Directory that will be published on github pages
+  PUBLISH_DIR: ./docs/_build/html
+
 jobs:
 
-  # Single deploy job since we're just deploying
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
+  build:
     runs-on: ubuntu-22.04
     container: dolfinx/dolfinx:v0.5.1
-        
-    env:
-      # Directory that will be published on github pages
-      PUBLISH_DIR: ./docs/_build/html
 
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      
-      - name: Setup Pages
-        uses: actions/configure-pages@v2
-      
+
       - name: Upgrade pip and setuptools
         run: |
           python3 -m pip install pip setuptools --upgrade
@@ -56,6 +48,24 @@ jobs:
       - name: Copy Dockerfile into gh-pages
         run: cp Dockerfile ${PUBLISH_DIR}/
 
+
+
+  # Single deploy job since we're just deploying
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+        
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v2
+      
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
