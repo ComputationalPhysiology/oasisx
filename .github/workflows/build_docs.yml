@@ -16,6 +16,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Upgrade pip and setuptools
+        run: |
+          python3 -m pip install pip setuptools --upgrade
+          apt-get purge -y python3-setuptools
+
       - name: Install dependencies
         run: python3 -m pip install ".[test,docs]"
                 
