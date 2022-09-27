@@ -1,6 +1,5 @@
-# Reproducible workflow for researchers
-
-This repository is a template for how to set up a reproducible python environment with GitHub.
+# OasisX
+High Level Open Source Navier-Stokes solver built using [FEniCSx](https://github.com/FEniCS/)
 
 ## Contents
 ```{tableofcontents}

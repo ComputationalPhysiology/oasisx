@@ -1,5 +1,5 @@
 API Reference
 =============
 
-.. automodule:: mypackage
+.. automodule:: oasisx
     :members:

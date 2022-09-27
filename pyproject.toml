@@ -3,12 +3,12 @@ requires = ["setuptools>=61.0.0", "wheel"]
 
 
 [project] # See https://python-poetry.org/docs/pyproject/ for more keywords
-name = "mypackage" # Name of your package
+name = "OasisX" # Name of your package
 authors = [ # List of authors
     {name = "Jørgen S. Dokken", email = "dokken@simula.no"}
     ]
 version = "0.1.0" # Version number
-description = "Minimal package for adding two numbers" # Short description of package
+description = "A modern implementation of Oasis" # Short description of package
 readme = "README.md" # Is used for the description field in your package, see: https://python-poetry.org/docs/pyproject/#readme
 requires-python = ">=3.8" # Set requirement for minimal python version
 license = {file = "LICENSE"} # Path to license file, see: https://spdx.org/licenses/ for options
@@ -47,7 +47,7 @@ files = [  # Folder to which files that should be checked by mypy
 ]
 
 [tool.pytest.ini_options]
-addopts = "--cov=mypackage --cov-report html --cov-report term-missing -v"
+addopts = "--cov=oasisx --cov-report html --cov-report term-missing -v"
 testpaths = [
     "test"
 ]
