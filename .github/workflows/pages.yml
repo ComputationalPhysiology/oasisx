@@ -48,7 +48,10 @@ jobs:
       - name: Copy Dockerfile into gh-pages
         run: cp Dockerfile ${PUBLISH_DIR}/
 
-
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: ${{ env.PUBLISH_DIR }}
 
   # Single deploy job since we're just deploying
   deploy:
@@ -65,11 +68,7 @@ jobs:
       
       - name: Setup Pages
         uses: actions/configure-pages@v2
-      
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v1
-        with:
-          path: ${{ env.PUBLISH_DIR }}
+   
       
       - name: Deploy to GitHub Pages
         id: deployment
