@@ -26,7 +26,20 @@ def assembly(mesh, P: int, run: int, mat_options: bool):
     convection_form = dolfinx.fem.form(convection)
 
     # Create time independent matrices
+    opts = PETSc.Options()
+    opts.prefixPush("M")
+    petsc_options = {"-mat_view": "::ascii_info"}
+    for k, v in petsc_options.items():
+        opts[k] = v
+    opts.prefixPop()
+    opts.prefixPush("K")
+    for k, v in petsc_options.items():
+        opts[k] = v
+    opts.prefixPop()
+
     M = dolfinx.fem.petsc.create_matrix(mass_form)
+    M.setOptionsPrefix("M")
+    M.setFromOptions()
     if mat_options:
         M.setOption(PETSc.Mat.Option.SYMMETRY_ETERNAL, True)
         M.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
@@ -36,6 +49,9 @@ def assembly(mesh, P: int, run: int, mat_options: bool):
         M.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)
 
     K = dolfinx.fem.petsc.create_matrix(stiffness_form)
+    K.setOptionsPrefix("K")
+    K.setFromOptions()
+
     if mat_options:
         K.setOption(PETSc.Mat.Option.SYMMETRY_ETERNAL, True)
         K.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
@@ -97,7 +113,7 @@ def assembly(mesh, P: int, run: int, mat_options: bool):
 
 
 if __name__ == "__main__":
-    Nx, Ny, Nz = 50, 50, 50
+    Nx, Ny, Nz = 2, 2, 2
     repeat = 3
     min_degree, max_degree = 1, 3  # 4
     mat_options = True
