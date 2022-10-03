@@ -219,7 +219,7 @@ class FractionalStep_AB_CN():
             self._b_tmp[i].x.array[:] = self._b0[i].x.array[:]
 
             # Add transient convection and difffusion
-            # NOTE: `Benchmark if this is faster than assembling an action
+            # NOTE: Benchmark if this is faster than assembling an action
             self._A.mult(self._u1[i].vector, self._b_matvec.vector)
             self._b_matvec.x.scatter_forward()
             self._b_tmp[i].x.array[:] += self._b_matvec.x.array[:]

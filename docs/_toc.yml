@@ -2,6 +2,10 @@ format: jb-book
 root: index
 
 parts:
+  - caption: Mathematical Description
+    chapters:
+    - file: "splitting_schemes"
+    
   - caption: Python API
     chapters:
     - file: "api"

@@ -38,5 +38,5 @@ sphinx:
   - 'sphinx.ext.napoleon'
   - 'sphinx.ext.viewcode'
 
-
-
+bibtex_bibfiles:
+  - "references.bib"
