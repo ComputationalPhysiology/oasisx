@@ -109,7 +109,7 @@ if __name__ == "__main__":
     Nx, Ny, Nz = 50, 50, 50
     repeat = 3
     min_degree, max_degree = 1, 3
-    figure = "output.ong"
+    figure = "output.png"
 
     # Information regarding optimization flags can be found at:
     # https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html
