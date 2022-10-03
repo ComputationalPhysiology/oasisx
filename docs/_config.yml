@@ -10,7 +10,7 @@ copyright: "2022"
 # See https://jupyterbook.org/content/execute.html
 execute:
   execute_notebooks: force
-
+  timeout: 600
 
 # Information about where the book exists on the web
 repository:

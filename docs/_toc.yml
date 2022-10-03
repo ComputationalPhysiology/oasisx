@@ -5,7 +5,8 @@ parts:
   - caption: Mathematical Description
     chapters:
     - file: "splitting_schemes"
-    
+    - file: "assembly_strategies"
+
   - caption: Python API
     chapters:
     - file: "api"

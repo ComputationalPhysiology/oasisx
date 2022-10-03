@@ -200,4 +200,6 @@ if __name__ == "__main__":
     results_p1 = run_parameter_sweep(100, 100, 80, 3, 1, 1)
     create_plot(results_p1, "P1.png")
 
+# We observe that the run-time of both strategies for $P=1$ are more or less the same for larger matrices.
+
 
