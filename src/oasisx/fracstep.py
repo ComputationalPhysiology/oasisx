@@ -10,7 +10,7 @@ import ufl
 import numpy as np
 from dolfinx import cpp as _cpp
 from dolfinx import fem as _fem
-from dolfinx import mesh as _mesh
+from dolfinx import mesh as _dmesh
 from .ksp import KSPSolver
 from petsc4py import PETSc as _PETSc
 
@@ -30,7 +30,7 @@ class FractionalStep_AB_CN():
             where each key leads to a dictionary of of PETSc options for each problem
         jit_options: Just in time parameters, to optimize form compilation
     """
-    _mesh: _mesh.Mesh  # The computational domain
+    _mesh: _dmesh.Mesh  # The computational domain
 
     # Velocity component and mapping to parent space
     _Vi: List[Tuple[_fem.FunctionSpace, npt.NDArray[np.int32]]]
@@ -58,7 +58,7 @@ class FractionalStep_AB_CN():
     _b_tmp: List[_fem.Function]  # Temporary storage for tentative velocity
     _b0: List[_fem.Function]  # Constant body forces
     _b_u: List[_fem.Function]  # RHS of tentative velocity step
-    _b_matvec: List[_fem.Function]  # Temporary work array for tentative velocity rhs
+    _b_matvec: _fem.Function  # Temporary work array for tentative velocity rhs
 
     _b_c: _fem.Function  # Function for holding RHS of pressure correction
 
@@ -77,7 +77,7 @@ class FractionalStep_AB_CN():
     _body_force: List[_fem.FormMetaClass]
     __slots__ = tuple(__annotations__)
 
-    def __init__(self, mesh: _mesh.Mesh, u_element: Tuple[str, int],
+    def __init__(self, mesh: _dmesh.Mesh, u_element: Tuple[str, int],
                  p_element: Tuple[str, int], solver_options: dict = None,
                  jit_options: dict = None, body_force: Optional[ufl.core.expr.Expr] = None):
         self._mesh = mesh
@@ -203,7 +203,7 @@ class FractionalStep_AB_CN():
             u_ab.x.array[:] = 1.5 * u_1.x.array - 0.5 * u_2.x.array
 
         self._A.zeroEntries()
-        _fem.petsc.assemble_matrix(self._A, self._conv_Vi, bcs=self._bc_u[0])
+        _fem.petsc.assemble_matrix(A=self._A, a=self._conv_Vi, bcs=self._bc_u[0])  # type: ignore
         self._A.assemble()
         self._A.scale(-0.5)  # Negative convection on the rhs
         self._A.axpy(1./dt, self._M)

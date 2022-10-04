@@ -68,7 +68,8 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
 
     u_ab = [dolfinx.fem.Function(V, name=f"u_ab{i}") for i in range(mesh.geometry.dim)]
     convection = ufl.inner(ufl.dot(ufl.as_vector(u_ab), ufl.nabla_grad(u)), v) * ufl.dx
-    [u_abi.interpolate(lambda x: x[0]) for u_abi in u_ab]
+    for u_abi in u_ab:
+        u_abi.interpolate(lambda x: x[0])
 
     # Compile forms for matrix vector products
     jit_options = {} if jit_options is None else jit_options
