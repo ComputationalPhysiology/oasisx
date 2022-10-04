@@ -26,6 +26,8 @@
 # We start by importing the necessary modules
 
 
+import seaborn
+import pandas
 import dolfinx
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -33,15 +35,21 @@ import ufl
 import numpy as np
 
 
-# We define a function, that takes in a mesh, the order `P` of the Lagrange function space for the scalar component of the velocity field, the number of times we should time the assembly, and `jit_options` for just in time compilation of the vartiational forms.
+# We define a function, that takes in a mesh, the order `P` of the Lagrange function space for the
+# scalar component of the velocity field, the number of times we should time the assembly, and
+# `jit_options` for just in time compilation of the vartiational forms.
 #
-# For the *Matrix-vector* strategy, we do only time the time it takes to modify the pre-assembled convection matrix, adding the scaled mass and stiffness matrices and computing the matrix vector product, as the matrix `A` is needed for the LHS assembly in the fractional step method.
+# For the *Matrix-vector* strategy, we do only time the time it takes to modify the pre-assembled
+# convection matrix, adding the scaled mass and stiffness matrices and computing the matrix vector
+# product, as the matrix `A` is needed for the LHS assembly in the fractional step method.
 #
-# For the *Action strategy* we use `ufl.action` to create the variational form for the RHS vector, and use generated code for the assembly.
+# For the *Action strategy* we use `ufl.action` to create the variational form for the RHS
+# vector, and use generated code for the assembly.
 #
 # This demo does not consider any Dirichet boundary conditions.
 #
-# We add some arbitrary data to the variables `dt`, `nu`, `u_1` and `u_ab`, as we are not solving a full problem here.
+# We add some arbitrary data to the variables `dt`, `nu`, `u_1` and `u_ab`,
+# as we are not solving a full problem here.
 
 def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
     V = dolfinx.fem.FunctionSpace(mesh, ("CG", int(P)))
@@ -136,19 +144,17 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
     return V.dofmap.index_map_bs * V.dofmap.index_map.size_global, t_matvec, t_action
 
 
-# We solve the problem on a unit cube that is split into tetrahedras with `Nx`,`Ny` and `Nx` tetrahera in the x, y and z-direction respectively.
+# We solve the problem on a unit cube that is split into tetrahedras with `Nx`,`Ny` and `Nx`
+# tetrahera in the x, y and z-direction respectively.
 
-def run_parameter_sweep(Nx:int, Ny:int, Nz:int, repeats:int, min_degree:int,
-                        max_degree:int)->dict:
+def run_parameter_sweep(Nx: int, Ny: int, Nz: int, repeats: int, min_degree: int,
+                        max_degree: int) -> dict:
     # Information regarding optimization flags can be found at:
     # https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html
     jit_options = {"cffi_extra_compile_args": ["-march=native", "-O3"]}
 
     mesh = dolfinx.mesh.create_unit_cube(MPI.COMM_WORLD, Nx, Ny, Nz)
     Ps = np.arange(min_degree, max_degree+1, dtype=np.int32)
-    num_dofs = np.zeros(len(Ps))
-    t_matvec = np.zeros((len(Ps), mesh.comm.size), dtype=np.float64)
-    t_action = np.zeros((len(Ps), mesh.comm.size), dtype=np.float64)
     j = 0
     results = {}
     for i, P in enumerate(Ps):
@@ -169,10 +175,8 @@ def run_parameter_sweep(Nx:int, Ny:int, Nz:int, repeats:int, min_degree:int,
 # We use `pandas` and `seaborn` to visualize the results
 
 # +
-import pandas
-import seaborn
 
-def create_plot(results: dict, outfile:str):
+def create_plot(results: dict, outfile: str):
     if MPI.COMM_WORLD.rank == 0:
         df = pandas.DataFrame.from_dict(results, orient="index")
         df["label"] = "P" + df["P"].astype(str) + " " + \
@@ -192,7 +196,8 @@ if __name__ == "__main__":
     results_p = run_parameter_sweep(30, 25, 23, repeats=3, min_degree=1, max_degree=4)
     create_plot(results_p, "P_sweep.png")
 
-# We observe that for all the runs, independent of the degree $P$, the *Action Strategy* is significantly faster than the 
+# We observe that for all the runs, independent of the degree $P$, the *Action Strategy* is
+# significantly faster than the
 
 # We note that the run for $P=1$ is relatively small, and therefore run $P=1$ on a larger mesh
 
@@ -200,6 +205,5 @@ if __name__ == "__main__":
     results_p1 = run_parameter_sweep(100, 100, 80, 3, 1, 1)
     create_plot(results_p1, "P1.png")
 
-# We observe that the run-time of both strategies for $P=1$ are more or less the same for larger matrices.
-
-
+# We observe that the run-time of both strategies for $P=1$ are more or less the
+# same for larger matrices.

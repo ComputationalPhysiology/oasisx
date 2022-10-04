@@ -9,7 +9,8 @@ import argparse
 from .mesh import import_mesh
 from .fracstep import FractionalStep_AB_CN
 
-desc = "Welcome to the Oasisx Python Package. To run the code, add the following command-line arguments"
+desc = "Welcome to the Oasisx Python Package. To run the code, add the" + \
+    " following command-line arguments"
 
 parser = argparse.ArgumentParser(description=desc,
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)

@@ -121,7 +121,8 @@ class FractionalStep_AB_CN():
 
         # Analyze boundary conditions, bc_u, bc_p. Should probably be a dictionary with
         # bcs = {"u":[(Method, locator, interpolant)], "p": [(Method, locator, interpolant)]}
-        # where method is an enum (topological, geometrical), and locator and interpolant are lambda functions
+        # where method is an enum (topological, geometrical), and locator and
+        # interpolant are lambda functions
         self._bc_u = [[]*self._mesh.geometry.dim]
         self._bc_p = []
 
@@ -137,7 +138,7 @@ class FractionalStep_AB_CN():
         for force in body_force:
             try:
                 force = _fem.Constant(self._mesh, force)
-            except:
+            except RuntimeError:
                 pass
             self._body_force.append(_fem.form(force*v*dx, jit_params=jit_options))
 
@@ -171,7 +172,8 @@ class FractionalStep_AB_CN():
                        for i in range(len(self._Vi))]
 
         # Convection term for Adams Bashforth step
-        self._conv_Vi = _fem.form(ufl.inner(ufl.dot(ufl.as_vector(self._uab), ufl.nabla_grad(u)), v)*dx,
+        self._conv_Vi = _fem.form(ufl.inner(ufl.dot(ufl.as_vector(self._uab),
+                                                    ufl.nabla_grad(u)), v)*dx,
                                   jit_params=jit_options)
 
     def _preassemble(self):
