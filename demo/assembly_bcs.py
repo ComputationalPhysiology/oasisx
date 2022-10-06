@@ -137,7 +137,8 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
         matvec = end_matvec - start_matvec
 
         print(
-            f"Matvec lifting {t_l2 - t_lifting:3e}, matvec total {matvec:3e}, fraction lift {(t_l2-t_lifting)/(matvec):3f}")
+            f"Matvec lifting {t_l2 - t_lifting:3e}, matvec total {matvec:3e}" +
+            f", fraction lift {(t_l2-t_lifting)/(matvec):3f}")
 
         # Compute the vector without using pre-generated matrices
         b_d = dolfinx.fem.Function(V)
@@ -154,7 +155,8 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
         end_action = time.perf_counter()
         action = end_action - start_action
         print(
-            f"Action lifting {t_l2 - t_lifting:3e}, Action total {action:3e}, fraction lift {(t_l2-t_lifting)/action:3f}")
+            f"Action lifting {t_l2 - t_lifting:3e}, Action total {action:3e}" +
+            f", fraction lift {(t_l2-t_lifting)/action:3f}")
         # Apply lifiting with the combined form
         b2 = dolfinx.fem.Function(V)
         start_combined = time.perf_counter()
@@ -167,7 +169,9 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
         end_combined = time.perf_counter()
         combined = end_combined - start_combined
         print(
-            f"Combined lifting {t_l2 - t_lifting:3e}, Combined total {end_combined-start_combined:3e}, fraction lift {(t_l2-t_lifting)/(end_combined-start_combined):3f}")
+            f"Combined lifting {t_l2 - t_lifting:3e}" +
+            f", Combined total {end_combined-start_combined:3e}" +
+            f", fraction lift {(t_l2-t_lifting)/(end_combined-start_combined):3f}")
 
         # Compare results
         assert np.allclose(b_d.x.array, b2.x.array)
