@@ -23,6 +23,7 @@
 #
 # We start by importing the necessary modules
 
+import matplotlib.pyplot as plt
 import time
 import seaborn
 import pandas
@@ -95,94 +96,109 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
     K.assemble()
     K.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)
 
-    # Create time dependent matrix (convection matrix)
+    # Variables for matvec approach
     A = dolfinx.fem.petsc.create_matrix(mass_form)
     A.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
+    A.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
 
-    # Vector for matrix vector product
     b = dolfinx.fem.Function(V)
 
-    t_matvec = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
-    t_action = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
-    t_caction = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
+    # Variables for new approach
+    Ax = dolfinx.fem.petsc.create_matrix(mass_form)
+    Ax.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
+    Ax.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
+
+    bx = dolfinx.fem.Function(V)
+
+    oasis_lhs = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
+    oasis_rhs = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
+    new_lhs = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
+    new_rhs = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
 
     for i in range(repeats):
+
+        # --------------Oasis approach-------------------------
+
         # Zero out time-dependent matrix
         A.zeroEntries()
 
         # Add convection term
+        start_lhs = time.perf_counter()
         dolfinx.fem.petsc.assemble_matrix(A, convection_form)
         A.assemble()
-
-        # Do mat-vec operations
-        start_matvec = time.perf_counter()
         A.scale(-0.5)
         A.axpy(1./dt, M)
         A.axpy(-0.5*nu, K)
-        dolfinx.cpp.fem.petsc.insert_diagonal(A, V._cpp_object, bcs=bcs, diagonal=1)
-        A.assemble()
-        A.mult(u_1.vector, b.vector)
-        t_lifting = time.perf_counter()
+        end_lhs = time.perf_counter()
 
-        dolfinx.fem.petsc.apply_lifting(b.vector, [mass_form], [bcs], scale=1./dt)
-        dolfinx.fem.petsc.apply_lifting(
-            b.vector, [stiffness_form], [bcs], scale=-0.5*nu)
-        dolfinx.fem.petsc.apply_lifting(
-            b.vector, [convection_form], [bcs], scale=-0.5)
-        t_l2 = time.perf_counter()
+        # Do mat-vec operations
+        b.x.array[:] = 0
+        start_rhs = time.perf_counter()
+        A.mult(u_1.vector, b.vector)
         b.x.scatter_reverse(dolfinx.la.ScatterMode.add)
         dolfinx.fem.petsc.set_bc(b.vector, bcs)
         b.x.scatter_forward()
-        end_matvec = time.perf_counter()
-        matvec = end_matvec - start_matvec
+        end_rhs = time.perf_counter()
+        t_matvec = end_rhs - start_rhs
 
-        print(
-            f"Matvec lifting {t_l2 - t_lifting:3e}, matvec total {matvec:3e}" +
-            f", fraction lift {(t_l2-t_lifting)/(matvec):3f}")
+        # Rescale matrix and apply bc
+        start_rescale = time.perf_counter()
+        A.scale(-1)
+        A.axpy(2/dt, M)
+
+        for bc in bcs:
+            A.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
+            A.zeroRowsLocal(bc.dof_indices()[0], 1.)
+
+        end_rescale = time.perf_counter()
+        t_matrix = end_rescale - start_rescale + end_lhs - start_lhs
+
+        # Gather results
+        oasis_lhs[i, :] = mesh.comm.allgather(t_matrix)
+        oasis_rhs[i, :] = mesh.comm.allgather(t_matvec)
+
+        # ---------------------------------------------------------
+        # Zero out time-dependent matrix
+        Ax.zeroEntries()
+
+        # Add convection term
+        start_lhs_new = time.perf_counter()
+        dolfinx.fem.petsc.assemble_matrix(Ax, convection_form)
+        Ax.assemble()
+        Ax.scale(0.5)
+        Ax.axpy(1./dt, M)
+        Ax.axpy(0.5*nu, K)
+        for bc in bcs:
+            Ax.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
+            Ax.zeroRowsLocal(bc.dof_indices()[0], 1.)
+
+        end_lhs_new = time.perf_counter()
 
         # Compute the vector without using pre-generated matrices
-        b_d = dolfinx.fem.Function(V)
-        start_action = time.perf_counter()
-        dolfinx.fem.petsc.assemble_vector(b_d.vector, rhs)
-        t_lifting = time.perf_counter()
-        dolfinx.fem.petsc.apply_lifting(b_d.vector, [mass_form], [bcs], scale=1./dt)
-        dolfinx.fem.petsc.apply_lifting(b_d.vector, [stiffness_form], [bcs], scale=-0.5*nu)
-        dolfinx.fem.petsc.apply_lifting(b_d.vector, [convection_form], [bcs], scale=-0.5)
-        t_l2 = time.perf_counter()
-        b_d.x.scatter_reverse(dolfinx.la.ScatterMode.add)
-        dolfinx.fem.petsc.set_bc(b_d.vector, bcs)
-        b_d.x.scatter_forward()
-        end_action = time.perf_counter()
-        action = end_action - start_action
-        print(
-            f"Action lifting {t_l2 - t_lifting:3e}, Action total {action:3e}" +
-            f", fraction lift {(t_l2-t_lifting)/action:3f}")
-        # Apply lifiting with the combined form
-        b2 = dolfinx.fem.Function(V)
-        start_combined = time.perf_counter()
-        dolfinx.fem.petsc.assemble_vector(b2.vector, rhs)
-        t_lifting = time.perf_counter()
-        dolfinx.fem.petsc.apply_lifting(b2.vector, [lhs_form], [bcs])
-        t_l2 = time.perf_counter()
-        b2.x.scatter_reverse(dolfinx.la.ScatterMode.add)
-        dolfinx.fem.petsc.set_bc(b2.vector, bcs)
-        end_combined = time.perf_counter()
-        combined = end_combined - start_combined
-        print(
-            f"Combined lifting {t_l2 - t_lifting:3e}" +
-            f", Combined total {end_combined-start_combined:3e}" +
-            f", fraction lift {(t_l2-t_lifting)/(end_combined-start_combined):3f}")
+        bx.x.array[:] = 0
+        start_rhs_new = time.perf_counter()
+        dolfinx.fem.petsc.assemble_vector(bx.vector, rhs)
+        bx.x.scatter_reverse(dolfinx.la.ScatterMode.add)
+        dolfinx.fem.petsc.set_bc(bx.vector, bcs)
+        bx.x.scatter_forward()
+        end_rhs_new = time.perf_counter()
 
-        # Compare results
-        assert np.allclose(b_d.x.array, b2.x.array)
-        assert np.allclose(b.x.array, b_d.x.array)
+        # Gather results
+        new_lhs[i, :] = mesh.comm.allgather(end_lhs_new - start_lhs_new)
+        new_rhs[i, :] = mesh.comm.allgather(end_rhs_new - start_rhs_new)
 
-        # Get timings
+        print("Oasis LHS", oasis_lhs[i],  "New LHS", new_lhs[i],
+              "Oasis RHS", oasis_rhs[i], "New RHS", new_rhs[i])
 
-        t_matvec[i, :] = mesh.comm.allgather(matvec)
-        t_action[i, :] = mesh.comm.allgather(action)
-        t_caction[i, :] = mesh.comm.allgather(combined)
-    return V.dofmap.index_map_bs * V.dofmap.index_map.size_global, t_matvec, t_action, t_caction
+        D = dolfinx.fem.petsc.create_matrix(mass_form)
+        D.zeroEntries()
+        D.assemble()
+        D.axpy(1, A)
+        D.axpy(-1, Ax)
+        assert (np.allclose(bx.x.array, b.x.array))
+        assert np.allclose(D.getValuesCSR()[2], 0)
+
+    return V.dofmap.index_map_bs * V.dofmap.index_map.size_global, new_lhs, new_rhs, oasis_lhs, oasis_rhs
 
 
 # We solve the problem on a unit cube that is split into tetrahedras with `Nx`,`Ny` and `Nx`
@@ -199,22 +215,30 @@ def run_parameter_sweep(Nx: int, Ny: int, Nz: int, repeats: int, min_degree: int
     j = 0
     results = {}
     for i, P in enumerate(Ps):
-        dof, matvec, action, caction = assembly(mesh, P, repeats=repeats, jit_options=jit_options)
-        for row in matvec:
+        dof, new_lhs, new_rhs, oasis_lhs, oasis_rhs = assembly(
+            mesh, P, repeats=repeats, jit_options=jit_options)
+        for row in new_lhs:
             for process in row:
-                results[j] = {"P": P, "num_dofs": dof, "method":
-                              "matvec", "time (s)": process, "procs": MPI.COMM_WORLD.size}
+                results[j] = {"P": P, "num_dofs": dof, "method": "new", "side":
+                              "lhs", "time (s)": process, "procs": MPI.COMM_WORLD.size}
                 j += 1
-        for row in action:
+        for row in new_rhs:
             for process in row:
-                results[j] = {"P": P, "num_dofs": dof, "method":
-                              "action", "time (s)": process, "procs": MPI.COMM_WORLD.size}
+                results[j] = {"P": P, "num_dofs": dof, "method": "new", "side":
+                              "rhs", "time (s)": process, "procs": MPI.COMM_WORLD.size}
                 j += 1
-        for row in action:
+
+        for row in oasis_lhs:
             for process in row:
-                results[j] = {"P": P, "num_dofs": dof, "method":
-                              "caction", "time (s)": process, "procs": MPI.COMM_WORLD.size}
+                results[j] = {"P": P, "num_dofs": dof, "method": "oasis", "side":
+                              "lhs", "time (s)": process, "procs": MPI.COMM_WORLD.size}
                 j += 1
+        for row in oasis_rhs:
+            for process in row:
+                results[j] = {"P": P, "num_dofs": dof, "method": "oasis", "side":
+                              "rhs", "time (s)": process, "procs": MPI.COMM_WORLD.size}
+                j += 1
+
     return results
 
 
@@ -222,34 +246,31 @@ def run_parameter_sweep(Nx: int, Ny: int, Nz: int, repeats: int, min_degree: int
 
 # +
 
+
 def create_plot(results: dict, outfile: str):
     if MPI.COMM_WORLD.rank == 0:
         df = pandas.DataFrame.from_dict(results, orient="index")
         df["label"] = "P" + df["P"].astype(str) + " " + \
             df["num_dofs"].astype(str) + " \n Comms: " + df["procs"].astype(str)
-        plot = seaborn.catplot(data=df, kind="swarm",  x="label", y="time (s)", hue="method")
+        fig = plt.figure()
+        df_rhs = df[df["side"] == "rhs"]
+        plot = seaborn.catplot(data=df_rhs, kind="swarm",  x="label",
+                               y="time (s)", hue="method")
         plot.set(yscale="log")
-        import matplotlib.pyplot as plt
         plt.grid()
-        plt.savefig(outfile)
-
+        plt.savefig(f"{outfile}_rhs.png")
+        plt.figure()
+        df_lhs = df[df["side"] == "lhs"]
+        plot = seaborn.catplot(data=df_lhs, kind="swarm",  x="label",
+                               y="time (s)", hue="method")
+        plot.set(yscale="log")
+        plt.grid()
+        plt.savefig(f"{outfile}_lhs.png")
 
 # -
 
+
 # We start by running the comparison for an increasing number of degrees of freedom on a fixed grid.
-
 if __name__ == "__main__":
-    results_p = run_parameter_sweep(35, 35, 35, repeats=3, min_degree=1, max_degree=3)
-    create_plot(results_p, "P_sweep_bc.png")
-
-# We observe that for all the runs, independent of the degree $P$, the *Action Strategy* is
-# significantly faster than the
-
-# We note that the run for $P=1$ is relatively small, and therefore run $P=1$ on a larger mesh
-
-# if __name__ == "__main__":
-#     results_p1 = run_parameter_sweep(100, 100, 80, 3, 1, 1)
-#     create_plot(results_p1, "P1.png")
-
-# We observe that the run-time of both strategies for $P=1$ are more or less the
-# same for larger matrices.
+    results_p = run_parameter_sweep(40, 40, 40, repeats=3, min_degree=1, max_degree=2)
+    create_plot(results_p, "results")
