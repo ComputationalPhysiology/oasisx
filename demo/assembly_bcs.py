@@ -97,15 +97,14 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
     K.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)
 
     # Variables for matvec approach
-    A = dolfinx.fem.petsc.create_matrix(mass_form)
-    A.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
-    A.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
+    A_sp = dolfinx.fem.create_sparsity_pattern(mass_form)
+    A_sp.assemble()
 
     b = dolfinx.fem.Function(V)
 
     # Variables for new approach
     Ax = dolfinx.fem.petsc.create_matrix(mass_form)
-    Ax.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
+    Ax.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, False)
     Ax.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
 
     bx = dolfinx.fem.Function(V)
@@ -114,18 +113,23 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
     oasis_rhs = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
     new_lhs = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
     new_rhs = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
-
+    new_total = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
+    oasis_total = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
     for i in range(repeats):
 
         # --------------Oasis approach-------------------------
 
         # Zero out time-dependent matrix
-        A.zeroEntries()
+        start_mat = time.perf_counter()
+        A = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp)
+        A.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
+        end_mat = time.perf_counter()
 
         # Add convection term
         start_lhs = time.perf_counter()
         dolfinx.fem.petsc.assemble_matrix(A, convection_form)
         A.assemble()
+
         A.scale(-0.5)
         A.axpy(1./dt, M)
         A.axpy(-0.5*nu, K)
@@ -145,21 +149,20 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
         start_rescale = time.perf_counter()
         A.scale(-1)
         A.axpy(2/dt, M)
-
         for bc in bcs:
             A.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
             A.zeroRowsLocal(bc.dof_indices()[0], 1.)
-
         end_rescale = time.perf_counter()
         t_matrix = end_rescale - start_rescale + end_lhs - start_lhs
 
         # Gather results
         oasis_lhs[i, :] = mesh.comm.allgather(t_matrix)
         oasis_rhs[i, :] = mesh.comm.allgather(t_matvec)
-
+        oasis_total[i, :] = mesh.comm.allgather(t_matrix + t_matvec)
         # ---------------------------------------------------------
         # Zero out time-dependent matrix
-        Ax.zeroEntries()
+        Ax = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp)
+        Ax.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
 
         # Add convection term
         start_lhs_new = time.perf_counter()
@@ -184,12 +187,15 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
         end_rhs_new = time.perf_counter()
 
         # Gather results
+        new_total[i, :] = mesh.comm.allgather(end_lhs_new - start_lhs_new
+                                              + end_rhs_new - start_rhs_new)
         new_lhs[i, :] = mesh.comm.allgather(end_lhs_new - start_lhs_new)
         new_rhs[i, :] = mesh.comm.allgather(end_rhs_new - start_rhs_new)
 
-        print("Oasis LHS", oasis_lhs[i],  "New LHS", new_lhs[i],
-              "Oasis RHS", oasis_rhs[i], "New RHS", new_rhs[i])
-
+        matrix_total = mesh.comm.allgather(end_mat-start_mat)
+        if mesh.comm.rank == 0:
+            print("Oasis Total", oasis_total[i],  "\nNew Total", new_total[i],
+                  "\nMatrix total", matrix_total, flush=True)
         D = dolfinx.fem.petsc.create_matrix(mass_form)
         D.zeroEntries()
         D.assemble()
@@ -198,7 +204,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
         assert (np.allclose(bx.x.array, b.x.array))
         assert np.allclose(D.getValuesCSR()[2], 0)
 
-    return V.dofmap.index_map_bs * V.dofmap.index_map.size_global, new_lhs, new_rhs, oasis_lhs, oasis_rhs
+    return V.dofmap.index_map_bs * V.dofmap.index_map.size_global, new_lhs, new_rhs, oasis_lhs, oasis_rhs, oasis_total, new_total
 
 
 # We solve the problem on a unit cube that is split into tetrahedras with `Nx`,`Ny` and `Nx`
@@ -215,8 +221,12 @@ def run_parameter_sweep(Nx: int, Ny: int, Nz: int, repeats: int, min_degree: int
     j = 0
     results = {}
     for i, P in enumerate(Ps):
-        dof, new_lhs, new_rhs, oasis_lhs, oasis_rhs = assembly(
+        if mesh.comm.rank == 0:
+            print(i, P, flush=True)
+        dof, new_lhs, new_rhs, oasis_lhs, oasis_rhs, oasis_total, new_total = assembly(
             mesh, P, repeats=repeats, jit_options=jit_options)
+        if mesh.comm.rank == 0:
+            print("Writing to dict")
         for row in new_lhs:
             for process in row:
                 results[j] = {"P": P, "num_dofs": dof, "method": "new", "side":
@@ -238,7 +248,16 @@ def run_parameter_sweep(Nx: int, Ny: int, Nz: int, repeats: int, min_degree: int
                 results[j] = {"P": P, "num_dofs": dof, "method": "oasis", "side":
                               "rhs", "time (s)": process, "procs": MPI.COMM_WORLD.size}
                 j += 1
-
+        for row in oasis_total:
+            for process in row:
+                results[j] = {"P": P, "num_dofs": dof, "method": "oasis", "side":
+                              "total", "time (s)": process, "procs": MPI.COMM_WORLD.size}
+                j += 1
+        for row in new_total:
+            for process in row:
+                results[j] = {"P": P, "num_dofs": dof, "method": "new", "side":
+                              "total", "time (s)": process, "procs": MPI.COMM_WORLD.size}
+                j += 1
     return results
 
 
@@ -266,11 +285,19 @@ def create_plot(results: dict, outfile: str):
         plot.set(yscale="log")
         plt.grid()
         plt.savefig(f"{outfile}_lhs.png")
+        plt.figure()
+        df_total = df[df["side"] == "total"]
+        plot = seaborn.catplot(data=df_lhs, kind="swarm",  x="label",
+                               y="time (s)", hue="method")
+        plot.set(yscale="log")
+        plt.grid()
+        plt.savefig(f"{outfile}_total.png")
 
 # -
 
 
 # We start by running the comparison for an increasing number of degrees of freedom on a fixed grid.
 if __name__ == "__main__":
-    results_p = run_parameter_sweep(40, 40, 40, repeats=3, min_degree=1, max_degree=2)
+    N = 40
+    results_p = run_parameter_sweep(N, N, N, repeats=3, min_degree=1, max_degree=2)
     create_plot(results_p, "results")
