@@ -19,8 +19,10 @@
 # SPDX-License-Identifier:    MIT
 #
 # # Application of Dirichlet BCs
-# Illustrates how to apply symmetric bcs for the RHS of the problem when using matrix caching
-#
+# Illustrates how to apply bcs to the component of the tentative velocity equation.
+# We compare two strategies: 
+# 1. Using matrix-vector products of pre-assembled matrices to compute the RHS
+# 2. Assemble the matrix and vector separately
 # We start by importing the necessary modules
 
 import matplotlib.pyplot as plt
@@ -75,9 +77,8 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
     dt_inv.name = "dt_inv"
     nu_c = dolfinx.fem.Constant(mesh, nu)
     nu_c.name = "nu"
-    lhs = dt_inv * mass - 0.5 * nu_c * stiffness - 0.5*convection
-    rhs = dolfinx.fem.form(ufl.action(lhs, u_1), jit_params=jit_options)
-    lhs_form = dolfinx.fem.form(lhs)
+    rhs = dt_inv * mass - 0.5 * nu_c * stiffness - 0.5*convection
+    rhs_form = dolfinx.fem.form(ufl.action(rhs, u_1), jit_params=jit_options)
 
     # Assemble time independent matrices
     # Mass matrix
@@ -96,19 +97,14 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
     K.assemble()
     K.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)
 
-    # Variables for matvec approach
     A_sp = dolfinx.fem.create_sparsity_pattern(mass_form)
     A_sp.assemble()
 
+    # RHS vectors
     b = dolfinx.fem.Function(V)
-
-    # Variables for new approach
-    Ax = dolfinx.fem.petsc.create_matrix(mass_form)
-    Ax.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, False)
-    Ax.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
-
     bx = dolfinx.fem.Function(V)
 
+    # Timing vectors
     oasis_lhs = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
     oasis_rhs = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
     new_lhs = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
@@ -116,23 +112,22 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
     new_total = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
     oasis_total = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
     for i in range(repeats):
-
+        mesh.comm.Barrier()
         # --------------Oasis approach-------------------------
-
         # Zero out time-dependent matrix
         start_mat = time.perf_counter()
         A = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp)
-        A.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
+        A.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
+        A.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, False)
         end_mat = time.perf_counter()
 
         # Add convection term
         start_lhs = time.perf_counter()
         dolfinx.fem.petsc.assemble_matrix(A, convection_form)
         A.assemble()
-
         A.scale(-0.5)
-        A.axpy(1./dt, M)
-        A.axpy(-0.5*nu, K)
+        A.axpy(1./dt, M,PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
+        A.axpy(-0.5*nu, K,PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
         end_lhs = time.perf_counter()
 
         # Do mat-vec operations
@@ -145,15 +140,17 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
         end_rhs = time.perf_counter()
         t_matvec = end_rhs - start_rhs
 
+        mesh.comm.Barrier()
         # Rescale matrix and apply bc
         start_rescale = time.perf_counter()
         A.scale(-1)
-        A.axpy(2/dt, M)
+        A.axpy(2/dt,M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
         for bc in bcs:
-            A.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
             A.zeroRowsLocal(bc.dof_indices()[0], 1.)
         end_rescale = time.perf_counter()
         t_matrix = end_rescale - start_rescale + end_lhs - start_lhs
+
+        mesh.comm.Barrier()
 
         # Gather results
         oasis_lhs[i, :] = mesh.comm.allgather(t_matrix)
@@ -162,25 +159,28 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
         # ---------------------------------------------------------
         # Zero out time-dependent matrix
         Ax = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp)
-        Ax.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
+        Ax.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
+        Ax.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, False)
+
+        mesh.comm.Barrier()
 
         # Add convection term
         start_lhs_new = time.perf_counter()
         dolfinx.fem.petsc.assemble_matrix(Ax, convection_form)
         Ax.assemble()
         Ax.scale(0.5)
-        Ax.axpy(1./dt, M)
-        Ax.axpy(0.5*nu, K)
+        Ax.axpy(1./dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
+        Ax.axpy(0.5*nu, K, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
         for bc in bcs:
-            Ax.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
             Ax.zeroRowsLocal(bc.dof_indices()[0], 1.)
-
         end_lhs_new = time.perf_counter()
+
+        mesh.comm.Barrier()
 
         # Compute the vector without using pre-generated matrices
         bx.x.array[:] = 0
         start_rhs_new = time.perf_counter()
-        dolfinx.fem.petsc.assemble_vector(bx.vector, rhs)
+        dolfinx.fem.petsc.assemble_vector(bx.vector, rhs_form)
         bx.x.scatter_reverse(dolfinx.la.ScatterMode.add)
         dolfinx.fem.petsc.set_bc(bx.vector, bcs)
         bx.x.scatter_forward()
@@ -196,13 +196,20 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
         if mesh.comm.rank == 0:
             print("Oasis Total", oasis_total[i],  "\nNew Total", new_total[i],
                   "\nMatrix total", matrix_total, flush=True)
-        D = dolfinx.fem.petsc.create_matrix(mass_form)
-        D.zeroEntries()
-        D.assemble()
-        D.axpy(1, A)
-        D.axpy(-1, Ax)
-        assert (np.allclose(bx.x.array, b.x.array))
-        assert np.allclose(D.getValuesCSR()[2], 0)
+        if not np.allclose(bx.x.array, b.x.array):
+            print(np.max(np.abs(bx.x.array[:]-b.x.array[:])))
+            raise RuntimeError("Vectors are not equal after assembly")
+
+
+        D = A.copy()
+        D.axpy(-1, Ax,PETSc.Mat.Structure.SAME_NONZERO_PATTERN)
+
+        if not np.allclose(D.getValuesCSR()[2], 0):
+            print(np.max(np.abs(D.getValuesCSR()[2])))
+            raise RuntimeError("Matrices are not equal after assembly")
+        A.destroy()
+        D.destroy()
+        Ax.destroy()
 
     return V.dofmap.index_map_bs * V.dofmap.index_map.size_global, new_lhs, new_rhs, oasis_lhs, oasis_rhs, oasis_total, new_total
 
@@ -298,6 +305,6 @@ def create_plot(results: dict, outfile: str):
 
 # We start by running the comparison for an increasing number of degrees of freedom on a fixed grid.
 if __name__ == "__main__":
-    N = 40
-    results_p = run_parameter_sweep(N, N, N, repeats=3, min_degree=1, max_degree=2)
+    N = 10
+    results_p = run_parameter_sweep(N, N, N, repeats=3, min_degree=3, max_degree=3)
     create_plot(results_p, "results")
