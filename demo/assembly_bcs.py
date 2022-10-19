@@ -20,7 +20,7 @@
 #
 # # Application of Dirichlet BCs
 # Illustrates how to apply bcs to the component of the tentative velocity equation.
-# We compare two strategies: 
+# We compare two strategies:
 # 1. Using matrix-vector products of pre-assembled matrices to compute the RHS
 # 2. Assemble the matrix and vector separately
 # We start by importing the necessary modules
@@ -35,6 +35,7 @@ from petsc4py import PETSc
 import ufl
 import numpy as np
 import typing
+
 
 def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = None):
     V = dolfinx.fem.FunctionSpace(mesh, ("CG", int(P)))
@@ -111,7 +112,6 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
     new_total = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
     oasis_total = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
 
-
     A_sp = dolfinx.fem.create_sparsity_pattern(mass_form)
     A_sp.assemble()
 
@@ -123,7 +123,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         mesh.comm.Barrier()
         # --------------Oasis approach-------------------------
         # Zero out time-dependent matrix
-        start_mat = time.perf_counter()        
+        start_mat = time.perf_counter()
         A.zeroEntries()
         A.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
         A.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, False)
@@ -134,8 +134,8 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         dolfinx.fem.petsc.assemble_matrix(A, convection_form)
         A.assemble()
         A.scale(-0.5)
-        A.axpy(1./dt, M,PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
-        A.axpy(-0.5*nu, K,PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
+        A.axpy(1./dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
+        A.axpy(-0.5*nu, K, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
         end_lhs = time.perf_counter()
 
         # Do mat-vec operations
@@ -152,7 +152,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         # Rescale matrix and apply bc
         start_rescale = time.perf_counter()
         A.scale(-1)
-        A.axpy(2/dt,M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
+        A.axpy(2/dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
         for bc in bcs:
             A.zeroRowsLocal(bc.dof_indices()[0], 1.)
         end_rescale = time.perf_counter()
@@ -208,15 +208,16 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         if not np.allclose(bx.x.array, b.x.array):
             print(np.max(np.abs(bx.x.array[:]-b.x.array[:])))
             raise RuntimeError("Vectors are not equal after assembly")
-      
+
         # Check that matrices are the same
         D.zeroEntries()
         A.copy(D, PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
-        D.axpy(-1, Ax,PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
+        D.axpy(-1, Ax, PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
         if not np.allclose(D.getValuesCSR()[2], 0):
             print(np.max(np.abs(D.getValuesCSR()[2])))
             raise RuntimeError("Matrices are not equal after assembly")
-    return V.dofmap.index_map_bs * V.dofmap.index_map.size_global, new_lhs, new_rhs, oasis_lhs, oasis_rhs, oasis_total, new_total
+    num_dofs_global = V.dofmap.index_map_bs * V.dofmap.index_map.size_global
+    return num_dofs_global, new_lhs, new_rhs, oasis_lhs, oasis_rhs, oasis_total, new_total
 
 
 # We solve the problem on a unit cube that is split into tetrahedras with `Nx`,`Ny` and `Nx`
@@ -283,7 +284,7 @@ def create_plot(results: dict, outfile: str):
         df = pandas.DataFrame.from_dict(results, orient="index")
         df["label"] = "P" + df["P"].astype(str) + " " + \
             df["num_dofs"].astype(str) + " \n Comms: " + df["procs"].astype(str)
-        fig = plt.figure()
+        plt.figure()
         df_rhs = df[df["side"] == "rhs"]
         plot = seaborn.catplot(data=df_rhs, kind="swarm",  x="label",
                                y="time (s)", hue="method")
@@ -299,7 +300,7 @@ def create_plot(results: dict, outfile: str):
         plt.savefig(f"{outfile}_lhs.png")
         plt.figure()
         df_total = df[df["side"] == "total"]
-        plot = seaborn.catplot(data=df_lhs, kind="swarm",  x="label",
+        plot = seaborn.catplot(data=df_total, kind="swarm",  x="label",
                                y="time (s)", hue="method")
         plot.set(yscale="log")
         plt.grid()
