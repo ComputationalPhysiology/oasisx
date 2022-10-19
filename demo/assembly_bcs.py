@@ -34,9 +34,9 @@ from mpi4py import MPI
 from petsc4py import PETSc
 import ufl
 import numpy as np
+import typing
 
-
-def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
+def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = None):
     V = dolfinx.fem.FunctionSpace(mesh, ("CG", int(P)))
 
     def f(x):
@@ -97,9 +97,6 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
     K.assemble()
     K.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)
 
-    A_sp = dolfinx.fem.create_sparsity_pattern(mass_form)
-    A_sp.assemble()
-
     # RHS vectors
     b = dolfinx.fem.Function(V)
     bx = dolfinx.fem.Function(V)
@@ -111,12 +108,21 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
     new_rhs = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
     new_total = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
     oasis_total = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
+
+
+    A_sp = dolfinx.fem.create_sparsity_pattern(mass_form)
+    A_sp.assemble()
+
+    A = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp)
+    Ax = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp)
+    D = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp)
+    D.assemble()
     for i in range(repeats):
         mesh.comm.Barrier()
         # --------------Oasis approach-------------------------
         # Zero out time-dependent matrix
-        start_mat = time.perf_counter()
-        A = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp)
+        start_mat = time.perf_counter()        
+        A.zeroEntries()
         A.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
         A.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, False)
         end_mat = time.perf_counter()
@@ -158,7 +164,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
         oasis_total[i, :] = mesh.comm.allgather(t_matrix + t_matvec)
         # ---------------------------------------------------------
         # Zero out time-dependent matrix
-        Ax = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp)
+        Ax.zeroEntries()
         Ax.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
         Ax.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, False)
 
@@ -196,21 +202,18 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
         if mesh.comm.rank == 0:
             print("Oasis Total", oasis_total[i],  "\nNew Total", new_total[i],
                   "\nMatrix total", matrix_total, flush=True)
+        # Check that vectors are the same
         if not np.allclose(bx.x.array, b.x.array):
             print(np.max(np.abs(bx.x.array[:]-b.x.array[:])))
             raise RuntimeError("Vectors are not equal after assembly")
-
-
-        D = A.copy()
-        D.axpy(-1, Ax,PETSc.Mat.Structure.SAME_NONZERO_PATTERN)
-
+      
+        # Check that matrices are the same
+        D.zeroEntries()
+        A.copy(D, PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
+        D.axpy(-1, Ax,PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
         if not np.allclose(D.getValuesCSR()[2], 0):
             print(np.max(np.abs(D.getValuesCSR()[2])))
             raise RuntimeError("Matrices are not equal after assembly")
-        A.destroy()
-        D.destroy()
-        Ax.destroy()
-
     return V.dofmap.index_map_bs * V.dofmap.index_map.size_global, new_lhs, new_rhs, oasis_lhs, oasis_rhs, oasis_total, new_total
 
 
@@ -305,6 +308,6 @@ def create_plot(results: dict, outfile: str):
 
 # We start by running the comparison for an increasing number of degrees of freedom on a fixed grid.
 if __name__ == "__main__":
-    N = 10
-    results_p = run_parameter_sweep(N, N, N, repeats=3, min_degree=3, max_degree=3)
+    N = 100
+    results_p = run_parameter_sweep(N, N, N, repeats=3, min_degree=1, max_degree=3)
     create_plot(results_p, "results")
