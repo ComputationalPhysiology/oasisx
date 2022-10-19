@@ -83,6 +83,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
     # Assemble time independent matrices
     # Mass matrix
     M = dolfinx.fem.petsc.create_matrix(mass_form)
+    M.setOption(PETSc.Mat.Option.SYMMETRIC, True)
     M.setOption(PETSc.Mat.Option.SYMMETRY_ETERNAL, True)
     M.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
     dolfinx.fem.petsc.assemble_matrix(M, mass_form)
@@ -91,6 +92,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
 
     # Stiffness matrix
     K = dolfinx.fem.petsc.create_matrix(stiffness_form)
+    K.setOption(PETSc.Mat.Option.SYMMETRIC, True)
     K.setOption(PETSc.Mat.Option.SYMMETRY_ETERNAL, True)
     K.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
     dolfinx.fem.petsc.assemble_matrix(K, stiffness_form)
