@@ -29,10 +29,17 @@ class FractionalStep_AB_CN():
             degree of the element used for the velocity
         p_element: A tuple describing the finite element family and
             degree of the element used for the pressure
-        solver_options: Dictionary with keys 'tentative', 'pressure' and 'scalar',
+        solver_options: Dictionary with keys `'tentative'`, `'pressure'` and `'scalar'`,
             where each key leads to a dictionary of of PETSc options for each problem
         jit_options: Just in time parameters, to optimize form compilation
+        options: Options for the Oasis solver.
+            `"low_memory_version"` `True`/`False` changes if :math:`\\nabla_k p^* v~\\mathrm{d}x` is
+            assembled as `True`: directly into a vector or `False`: matrix-vector product.
+            Default value: True
+        body_force: List of forces acting in each direction (x,y,z)
     """
+
+    # -----------------------Multi-step variables-------------------------------
     _mesh: _dmesh.Mesh  # The computational domain
 
     # Velocity component and mapping to parent space
@@ -40,51 +47,59 @@ class FractionalStep_AB_CN():
     _V: _fem.FunctionSpace  # Velocity function space
     _Q: _fem.FunctionSpace  # Pressure function space
 
+    _mass_Vi: _fem.FormMetaClass  # Compiled form for mass matrix
+    _M: _PETSc.Mat  # Mass matrix
+    _bc_u: List[List[_fem.DirichletBCMetaClass]]
+    _bc_p: List[_fem.DirichletBCMetaClass]
+
+    # -----------------------Tentative velocity step----------------------------
     _u: List[_fem.Function]  # Velocity at time t
     _u1: List[_fem.Function]  # Velocity at time t - dt
     _u2: List[_fem.Function]  # Velocity at time t - 2*dt
     _uab: List[_fem.Function]  # Explicit part of Adam Bashforth convection term
     _ps: _fem.Function  # Pressure at time t - 3/2 dt
-    _p: _fem.Function  # Pressure at time t - 1/2 dt
-    _dp: _fem.Function  # Pressure correction
-
     _solver_u: KSPSolver
-    _solver_p: KSPSolver
-    _solver_c: KSPSolver
 
     _conv_Vi: _fem.FormMetaClass  # Compiled form of Adam Bashforth convection
-    _mass_Vi: _fem.FormMetaClass  # Compiled form for mass matrix
     # Compiled form of the pressure gradient for RHS of tentative velocity
     _grad_p: List[_fem.FormMetaClass]
-
     _stiffness_Vi: _fem.FormMetaClass  # Compiled form for stiffness matrix
-    _stiffness_Q: _fem.FormMetaClass  # Compiled form for pressure Laplacian
+    _body_force: List[_fem.FormMetaClass]
 
-    _b_tmp: List[_fem.Function]  # Temporary storage for tentative velocity
-    _b0: List[_fem.Function]  # Constant body forces
+    _b_tmp: List[_fem.Function]  # Working array for previous time step of tenative velocity RHS
+    _b0: List[_fem.Function]  # Working array for constant body force contribution
     _b_u: List[_fem.Function]  # RHS of tentative velocity step
-    _b_matvec: _fem.Function  # Temporary work array for tentative velocity rhs
+    _b_matvec: _fem.Function  # Work array for tentative velocity matrix vector product
+    _b_gp: List[_fem.Function]  # Work array for gradient p term on RHS
 
+    _A: _PETSc.Mat  # Matrix for tentative velocity step
+    _grad_p_M: List[_PETSc.Mat]  # Matrix for grad-p operator
+    _K: _PETSc.Mat  # Stiffness matrix
+
+    _low_memory: bool  # Indicating if grad(p) term is assembled as vector or matrix
+
+    # ----------------------Pressure correction---------------------------------
+    _p: _fem.Function  # Pressure at time t - 1/2 dt
+    _dp: _fem.Function  # Pressure correction
     _b_c: _fem.Function  # Function for holding RHS of pressure correction
 
-    _c_rhs: List[_fem.FormMetaClass]  # List of velocity update terms for each component
+    _solver_p: KSPSolver
+    _stiffness_Q: _fem.FormMetaClass  # Compiled form for pressure Laplacian
     _p_rhs: _fem.FormMetaClass
+
+    _Ap: _PETSc.Mat  # Pressure Laplacian
+
+    # ----------------------Velocity update-------------------------------------
+    _solver_c: KSPSolver
+    _c_rhs: List[_fem.FormMetaClass]  # List of velocity update terms for each component
     _p_b: _fem.Function
 
-    _M: _PETSc.Mat  # Mass matrix
-    _K: _PETSc.Mat  # Stiffnes matrix
-    _Ap: _PETSc.Mat  # Pressure Laplacian
-    _A: _PETSc.Mat  # Matrix for tentative velocity step
-
-    _bc_u: List[List[_fem.DirichletBCMetaClass]]
-    _bc_p: List[_fem.DirichletBCMetaClass]
-
-    _body_force: List[_fem.FormMetaClass]
     __slots__ = tuple(__annotations__)
 
     def __init__(self, mesh: _dmesh.Mesh, u_element: Tuple[str, int],
                  p_element: Tuple[str, int], solver_options: dict = None,
-                 jit_options: dict = None, body_force: Optional[ufl.core.expr.Expr] = None):
+                 jit_options: dict = None, body_force: Optional[ufl.core.expr.Expr] = None,
+                 options: dict = None):
         self._mesh = mesh
 
         v_el = ufl.VectorElement(u_element[0], mesh.ufl_cell(), u_element[1])
@@ -98,14 +113,16 @@ class FractionalStep_AB_CN():
         self._u2 = [_fem.Function(Vi[0], name=f"u_{i}2") for (i, Vi) in enumerate(self._Vi)]
         self._uab = [_fem.Function(Vi[0], name=f"u_{i}ab") for (i, Vi) in enumerate(self._Vi)]
 
+        # Working arrays
+        self._b_tmp = [_fem.Function(Vi[0]) for (i, Vi) in enumerate(
+            self._Vi)]
+        self._b_matvec = _fem.Function(self._Vi[0][0])
+
         # RHS arrays
         self._b_u = [_fem.Function(Vi[0]) for (i, Vi) in enumerate(
             self._Vi)]
-        self._b_tmp = [_fem.Function(Vi[0]) for (i, Vi) in enumerate(
-            self._Vi)]
         self._b0 = [_fem.Function(Vi[0]) for (i, Vi) in enumerate(
             self._Vi)]
-        self._b_matvec = _fem.Function(self._Vi[0][0])
 
         # Initialize pressure functions for varitional problem
         self._Q = _fem.FunctionSpace(mesh, p_el)
@@ -118,6 +135,10 @@ class FractionalStep_AB_CN():
         self._solver_u = KSPSolver(mesh.comm, solver_options.get("tentative"))
         self._solver_p = KSPSolver(mesh.comm, solver_options.get("pressure"))
         self._solver_c = KSPSolver(mesh.comm, solver_options.get("scalar"))
+
+        if options is None:
+            options = {}
+        self._low_memory = options.get("low_memory_version", True)
 
         # Precompile forms and allocate matrices
         jit_options = {} if jit_options is None else jit_options
@@ -162,8 +183,13 @@ class FractionalStep_AB_CN():
         self._K = _fem.petsc.create_matrix(self._stiffness_Vi)
 
         # Pressure gradients
-        self._grad_p = [_fem.form(self._ps.dx(i)*v[i]*dx, jit_params=jit_options)
-                        for i in range(self._mesh.geometry.dim)]
+        if self._low_memory:
+            self._grad_p = [_fem.form(self._ps.dx(i)*v*dx, jit_params=jit_options)
+                            for i in range(self._mesh.geometry.dim)]
+        else:
+            self._grad_p = [_fem.form(p.dx(i)*v*dx, jit_params=jit_options)
+                            for i in range(self._mesh.geometry.dim)]
+            self._grad_p_M = [_fem.petsc.create_matrix(grad_p) for grad_p in self._grad_p]
 
         # -----------------Pressure currection step----------------------
 
@@ -195,10 +221,14 @@ class FractionalStep_AB_CN():
         _fem.petsc.assemble_matrix(self._Ap, self._stiffness_Q)
         self._Ap.assemble()
 
+        if not self._low_memory:
+            [_fem.petsc.assemble_matrix(self._grad_p_M[i], self._grad_p[i])
+             for i in range(self._mesh.geometry.dim)]
+
         # Assemble constant body forces
         for i in range(len(self._u)):
-            self._b_tmp[i].x.set(0.0)
-            _fem.petsc.assemble_vector(self._b_tmp[i].vector, self._body_force[i])
+            self._b0[i].x.set(0.0)
+            _fem.petsc.assemble_vector(self._b0[i].vector, self._body_force[i])
 
     def assemble_first(self, dt: float, nu: float):
         """
@@ -263,5 +293,34 @@ class FractionalStep_AB_CN():
 
         :math:`b(u_k^{n-1})` is computed in `assemble_first`.
         """
+        if self._low_memory:
+            # Using the fact that all the gradient forms has the same coefficient
+            coeffs = _cpp.fem.pack_coefficients(self._grad_p[0])
+            for i in range(self._mesh.geometry.dim):
+                self._gp[i].x.set(0.)
+                _fem.petsc.assemble_vector(
+                    self._b_gp[i], self._grad_p[i], coeffs=coeffs, constants=[])
+                self._b_gp[i].x.scatter_reverse(_la.ScatterMode.add)
+                self._b_gp[i].x.scatter_forward()
+        else:
+            for i in range(self._mesh.geometry.dim):
+                self._gp[i].x.set(0.)
+                self._grad_p_M[i].mult(self._ps.vector, self._b_gp[i].vector)
+                self._b_gp[i].x.scatter_forward()
+        # Update RHS
+        for i in range(self._mesh.geometry.dim):
+            self._b_u[i].x.array[:] = self._b_tmp[i].x.array - self._b_gp[i].x.array
 
-        pass
+    def velocity_tenative_solve(self) -> np.float64:
+        """
+        Apply Dirichlet boundary condition to RHS vector and solver linear algebra system
+        """
+        self._solver_u.setOperators(self._A)
+        diff = 0
+        for i in range(self._mesh.geometry.dim):
+            _fem.petsc.set_bc(self._b_u[i].vector, self._bc_u[i])
+            # Use u_k^n-2dt as temporary storage, as it is only used in `assemble_first`
+            self._u2[i].x.array[:] = self._u[i].array
+            self._solver_u.solve(self._b_u[i], self._u[i])
+
+            # diff =
