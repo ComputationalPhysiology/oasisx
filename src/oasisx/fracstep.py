@@ -9,10 +9,13 @@ import numpy.typing as npt
 import ufl
 import numpy as np
 from dolfinx import cpp as _cpp
-from dolfinx import fem as _fem
+from dolfinx import fem as _fem, la as _la
 from dolfinx import mesh as _dmesh
 from .ksp import KSPSolver
 from petsc4py import PETSc as _PETSc
+
+
+__all__ = ["FractionalStep_AB_CN"]
 
 
 class FractionalStep_AB_CN():
@@ -41,8 +44,8 @@ class FractionalStep_AB_CN():
     _u1: List[_fem.Function]  # Velocity at time t - dt
     _u2: List[_fem.Function]  # Velocity at time t - 2*dt
     _uab: List[_fem.Function]  # Explicit part of Adam Bashforth convection term
-    _p: _fem.Function  # Pressure at time t
-    _p1: _fem.Function  # Pressure at time t - dt
+    _ps: _fem.Function  # Pressure at time t - 3/2 dt
+    _p: _fem.Function  # Pressure at time t - 1/2 dt
     _dp: _fem.Function  # Pressure correction
 
     _solver_u: KSPSolver
@@ -51,6 +54,8 @@ class FractionalStep_AB_CN():
 
     _conv_Vi: _fem.FormMetaClass  # Compiled form of Adam Bashforth convection
     _mass_Vi: _fem.FormMetaClass  # Compiled form for mass matrix
+    # Compiled form of the pressure gradient for RHS of tentative velocity
+    _grad_p: List[_fem.FormMetaClass]
 
     _stiffness_Vi: _fem.FormMetaClass  # Compiled form for stiffness matrix
     _stiffness_Q: _fem.FormMetaClass  # Compiled form for pressure Laplacian
@@ -68,8 +73,8 @@ class FractionalStep_AB_CN():
 
     _M: _PETSc.Mat  # Mass matrix
     _K: _PETSc.Mat  # Stiffnes matrix
-    _A: _PETSc.Mat  # Coefficient matrix
     _Ap: _PETSc.Mat  # Pressure Laplacian
+    _A: _PETSc.Mat  # Matrix for tentative velocity step
 
     _bc_u: List[List[_fem.DirichletBCMetaClass]]
     _bc_p: List[_fem.DirichletBCMetaClass]
@@ -104,7 +109,8 @@ class FractionalStep_AB_CN():
 
         # Initialize pressure functions for varitional problem
         self._Q = _fem.FunctionSpace(mesh, p_el)
-        self._p = _fem.Function(self._Q)
+        self._ps = _fem.Function(self._Q)
+        self._p = _fem.Function(self.Q)
         self._dp = _fem.Function(self._Q)
 
         # Create solvers for each step
@@ -134,6 +140,8 @@ class FractionalStep_AB_CN():
         dx = ufl.Measure("dx", domain=self._mesh)
         u = ufl.TrialFunction(self._Vi[0][0])
         v = ufl.TestFunction(self._Vi[0][0])
+
+        # -----------------Tentative velocity step----------------------
         self._body_force = []
         for force in body_force:
             try:
@@ -142,19 +150,22 @@ class FractionalStep_AB_CN():
                 pass
             self._body_force.append(_fem.form(force*v*dx, jit_params=jit_options))
 
-        self._b_u = _fem.Function(self._Vi[0][0])
-
         # Mass matrix for velocity component
         self._mass_Vi = _fem.form(u*v*dx, jit_params=jit_options)
         self._M = _fem.petsc.create_matrix(self._mass_Vi)
 
-        # Coefficient matrix
         self._A = _fem.petsc.create_matrix(self._mass_Vi)
 
         # Stiffness matrix for velocity component
         self._stiffness_Vi = _fem.form(ufl.inner(ufl.grad(u), ufl.grad(v))*dx,
                                        jit_params=jit_options)
         self._K = _fem.petsc.create_matrix(self._stiffness_Vi)
+
+        # Pressure gradients
+        self._grad_p = [_fem.form(self._ps.dx(i)*v[i]*dx, jit_params=jit_options)
+                        for i in range(self._mesh.geometry.dim)]
+
+        # -----------------Pressure currection step----------------------
 
         # Pressure Laplacian/stiffness matrix
         p = ufl.TrialFunction(self._Q)
@@ -177,11 +188,11 @@ class FractionalStep_AB_CN():
                                   jit_params=jit_options)
 
     def _preassemble(self):
-        _fem.petsc.assemble_matrix(self._M, self._mass_Vi, bcs=self._bc_u[0])
+        _fem.petsc.assemble_matrix(self._M, self._mass_Vi)
         self._M.assemble()
-        _fem.petsc.assemble_matrix(self._K, self._stiffness_Vi, bcs=self._bc_u[0])
+        _fem.petsc.assemble_matrix(self._K, self._stiffness_Vi)
         self._K.assemble()
-        _fem.petsc.assemble_matrix(self._Ap, self._stiffness_Q, bcs=self._bc_p)
+        _fem.petsc.assemble_matrix(self._Ap, self._stiffness_Q)
         self._Ap.assemble()
 
         # Assemble constant body forces
@@ -191,10 +202,22 @@ class FractionalStep_AB_CN():
 
     def assemble_first(self, dt: float, nu: float):
         """
-        Assembly routine for first iteration of pressure/velocity system
+        Assembly routine for first iteration of pressure/velocity system.
 
+        .. math::
+            A=\\frac{1}{\\delta t}M  + \\frac{1}{2} C +\\frac{1}{2}\\nu K
 
+        where `M` is the mass matrix, `K` the stiffness matrix and `C` the convective term.
+        We also assemble parts of the right hand side:
 
+        .. math::
+
+            b_k=\\left(\\frac{1}{\\delta t}M  + \\frac{1}{2} C +\\frac{1}{2}\\nu K\\right)u_k^{n-1}
+            + \\int_{\\Omega} f_k^{n-\\frac{1}{2}}v_k~\\mathrm{d}x
+
+        Args:
+            dt: The time step
+            nu: The kinematic viscosity
         """
         self._u1[0].x.array[:] = 2
         # Update explicit part of Adam-Bashforth approximation with previous time step
@@ -203,17 +226,13 @@ class FractionalStep_AB_CN():
             u_ab.x.array[:] = 1.5 * u_1.x.array - 0.5 * u_2.x.array
 
         self._A.zeroEntries()
-        _fem.petsc.assemble_matrix(A=self._A, a=self._conv_Vi, bcs=self._bc_u[0])  # type: ignore
+        _fem.petsc.assemble_matrix(A=self._A, a=self._conv_Vi)  # type: ignore
         self._A.assemble()
         self._A.scale(-0.5)  # Negative convection on the rhs
-        self._A.axpy(1./dt, self._M)
+        self._A.axpy(1./dt, self._M, _PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
 
         # Add diffusion
-        self._A.axpy(-0.5*nu, self._K)
-
-        # Remove diagonal entries due to BC before adding to RHS
-        _cpp.fem.petsc.insert_diagonal(
-            self._A, self._Vi[0][0]._cpp_object, bcs=self._bc_u[0], diagonal=0.0)
+        self._A.axpy(-0.5*nu, self._K, _PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
 
         # Compute rhs for all velocity components
         for i, ui in enumerate(self._u):
@@ -221,20 +240,28 @@ class FractionalStep_AB_CN():
             self._b_tmp[i].x.array[:] = self._b0[i].x.array[:]
 
             # Add transient convection and difffusion
-            # NOTE: Benchmark if this is faster than assembling an action
             self._A.mult(self._u1[i].vector, self._b_matvec.vector)
+            self._b_matvec.x.scatter_reverse(_la.ScatterMode.add)
             self._b_matvec.x.scatter_forward()
             self._b_tmp[i].x.array[:] += self._b_matvec.x.array[:]
 
         # Reset matrix for lhs
         self._A.scale(-1)
-        self._A.axpy(2./dt, self._M)
+        self._A.axpy(2./dt, self._M,  _PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
+        # NOTE: This would not work if we have different DirichletBCs on different components
+        for bc in self._bc_u[0]:
+            self._A.zeroRowsLocal(bc.dof_indices()[0], 1.)
 
-        # Insert diagonal
-        _cpp.fem.petsc.insert_diagonal(
-            self._A, self._Vi[0][0]._cpp_object, bcs=self._bc_u[0], diagonal=1.0)
+    def velocity_tentative_assemble(self):
+        """
+        Assemble RHS of tentative velocity equation computing the :math:`p^*`-dependent term of
 
-        #     from IPython import embed
-        #     embed()
+        .. math::
 
-        # def set_bc(self, ...):
+            b_k \\mathrel{+}= b(u_k^{n-1}) + \\int_{\\Omega} 
+            \\frac{\\partial p^*}{\\partial x_k}v_k~\\mathrm{d}x.
+
+        :math:`b(u_k^{n-1})` is computed in `assemble_first`.
+        """
+
+        pass

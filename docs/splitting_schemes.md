@@ -35,7 +35,7 @@ We use integration by parts and multiplication with a test function $v$ to obtai
 \begin{align}
     \frac{1}{\Delta t}\int_\Omega (u^I_k-u_k^{n-1}) v~\mathrm{d}x +& \int_\Omega \mathbf{\bar u} \cdot \frac{1}{2}\nabla (u_k^I + u_k^{n-1}) v ~\mathrm{d}x\\
     &+ \frac{\nu}{2}\int_\Omega \nabla (u_k^I + u_k^{n-1})\cdot \nabla v ~\mathrm{d}x \\
-    &= \int_\Omega (-\nabla_k p^\star + f)v ~\mathrm{dx}.
+    &= \int_\Omega (-\nabla_k p^\star + f_k^{n-\frac{1}{2}})v ~\mathrm{dx}.
 \end{align}
 ```
 
