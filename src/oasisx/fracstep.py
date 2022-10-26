@@ -230,7 +230,7 @@ class FractionalStep_AB_CN():
             self._b0[i].x.set(0.0)
             _fem.petsc.assemble_vector(self._b0[i].vector, self._body_force[i])
 
-    def assemble_first(self, dt: float, nu: float):
+    def _assemble_first(self, dt: float, nu: float):
         """
         Assembly routine for first iteration of pressure/velocity system.
 
@@ -282,7 +282,7 @@ class FractionalStep_AB_CN():
         for bc in self._bc_u[0]:
             self._A.zeroRowsLocal(bc.dof_indices()[0], 1.)
 
-    def velocity_tentative_assemble(self):
+    def _velocity_tentative_assemble(self):
         """
         Assemble RHS of tentative velocity equation computing the :math:`p^*`-dependent term of
 
@@ -311,16 +311,45 @@ class FractionalStep_AB_CN():
         for i in range(self._mesh.geometry.dim):
             self._b_u[i].x.array[:] = self._b_tmp[i].x.array - self._b_gp[i].x.array
 
-    def velocity_tenative_solve(self) -> np.float64:
+    def _velocity_tenative_solve(self) -> Tuple[np.float64, npt.NDArray[np.int32]]:
         """
         Apply Dirichlet boundary condition to RHS vector and solver linear algebra system
+
+        Returns the difference between the two solutions and the solver error codes
         """
         self._solver_u.setOperators(self._A)
         diff = 0
+        errors = np.zeros(self._mesh.geometry.dim, dtype=np.int32)
         for i in range(self._mesh.geometry.dim):
             _fem.petsc.set_bc(self._b_u[i].vector, self._bc_u[i])
             # Use u_k^n-2dt as temporary storage, as it is only used in `assemble_first`
             self._u2[i].x.array[:] = self._u[i].array
-            self._solver_u.solve(self._b_u[i], self._u[i])
+            errors[i] = self._solver_u.solve(self._b_u[i], self._u[i])
 
-            # diff =
+            # Use _b_matvec for computing the l2 difference
+            self._b_matvec.x.array[:] = self._u[i].x.array - self._u2[i].x.array
+            diff += self._b_matvec.vector.norm(_PETSc.NormType.NORM_2)
+        return diff, errors
+
+    def tenative_velocity(self, dt: float, nu: float, max_error: float = 1e-12, max_iter: int = 10) -> np.float64:
+        """
+        Propagate the tenative velocity by one step    
+
+        Args:
+            dt: The time step
+            nu: The kinematic velocity
+            max_error: The maximal difference for inner iterations of solving `u`
+            max_iter: Maximal number of inner iterations for `u`
+        Returns:
+            The difference between the two last inner iterations
+
+        """
+        inner_it = 0
+        diff = 1e8
+        self._assemble_first(dt, nu)
+        while inner_it < max_iter and diff > max_error:
+            inner_it += 1
+            self._velocity_tentative_assemble()
+            diff, errors = self._velocity_tenative_solve()
+            assert (errors > 0).all()
+        return diff
