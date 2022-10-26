@@ -33,7 +33,7 @@ class FractionalStep_AB_CN():
             where each key leads to a dictionary of of PETSc options for each problem
         jit_options: Just in time parameters, to optimize form compilation
         options: Options for the Oasis solver.
-            `"low_memory_version"` `True`/`False` changes if :math:`\\nabla_k p^* v~\\mathrm{d}x` is
+            `"low_memory_version"` `True`/`False` changes if :math:`\\int\\nabla_k p^* v~\\mathrm{d}x` is
             assembled as `True`: directly into a vector or `False`: matrix-vector product.
             Default value: True
         body_force: List of forces acting in each direction (x,y,z)
@@ -117,7 +117,8 @@ class FractionalStep_AB_CN():
         self._b_tmp = [_fem.Function(Vi[0]) for (i, Vi) in enumerate(
             self._Vi)]
         self._b_matvec = _fem.Function(self._Vi[0][0])
-
+        self._b_gp = [_fem.Function(Vi[0]) for (i, Vi) in enumerate(
+            self._Vi)]
         # RHS arrays
         self._b_u = [_fem.Function(Vi[0]) for (i, Vi) in enumerate(
             self._Vi)]
@@ -127,7 +128,7 @@ class FractionalStep_AB_CN():
         # Initialize pressure functions for varitional problem
         self._Q = _fem.FunctionSpace(mesh, p_el)
         self._ps = _fem.Function(self._Q)
-        self._p = _fem.Function(self.Q)
+        self._p = _fem.Function(self._Q)
         self._dp = _fem.Function(self._Q)
 
         # Create solvers for each step
@@ -150,7 +151,7 @@ class FractionalStep_AB_CN():
         # bcs = {"u":[(Method, locator, interpolant)], "p": [(Method, locator, interpolant)]}
         # where method is an enum (topological, geometrical), and locator and
         # interpolant are lambda functions
-        self._bc_u = [[]*self._mesh.geometry.dim]
+        self._bc_u = [[] for _ in range(self._mesh.geometry.dim)]
         self._bc_p = []
 
         # Assemble constant matrices
@@ -183,6 +184,7 @@ class FractionalStep_AB_CN():
         self._K = _fem.petsc.create_matrix(self._stiffness_Vi)
 
         # Pressure gradients
+        p = ufl.TrialFunction(self._Q)
         if self._low_memory:
             self._grad_p = [_fem.form(self._ps.dx(i)*v*dx, jit_params=jit_options)
                             for i in range(self._mesh.geometry.dim)]
@@ -194,7 +196,6 @@ class FractionalStep_AB_CN():
         # -----------------Pressure currection step----------------------
 
         # Pressure Laplacian/stiffness matrix
-        p = ufl.TrialFunction(self._Q)
         q = ufl.TestFunction(self._Q)
         self._stiffness_Q = _fem.form(ufl.inner(ufl.grad(p), ufl.grad(q))*ufl.dx,
                                       jit_params=jit_options)
@@ -224,13 +225,14 @@ class FractionalStep_AB_CN():
         if not self._low_memory:
             [_fem.petsc.assemble_matrix(self._grad_p_M[i], self._grad_p[i])
              for i in range(self._mesh.geometry.dim)]
+            [M.assemble() for M in self._grad_p_M]
 
         # Assemble constant body forces
         for i in range(len(self._u)):
             self._b0[i].x.set(0.0)
             _fem.petsc.assemble_vector(self._b0[i].vector, self._body_force[i])
 
-    def _assemble_first(self, dt: float, nu: float):
+    def assemble_first(self, dt: float, nu: float):
         """
         Assembly routine for first iteration of pressure/velocity system.
 
@@ -256,7 +258,7 @@ class FractionalStep_AB_CN():
             u_ab.x.array[:] = 1.5 * u_1.x.array - 0.5 * u_2.x.array
 
         self._A.zeroEntries()
-        _fem.petsc.assemble_matrix(A=self._A, a=self._conv_Vi)  # type: ignore
+        _fem.petsc.assemble_matrix(self._A, a=self._conv_Vi)  # type: ignore
         self._A.assemble()
         self._A.scale(-0.5)  # Negative convection on the rhs
         self._A.axpy(1./dt, self._M, _PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
@@ -280,15 +282,15 @@ class FractionalStep_AB_CN():
         self._A.axpy(2./dt, self._M,  _PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
         # NOTE: This would not work if we have different DirichletBCs on different components
         for bc in self._bc_u[0]:
-            self._A.zeroRowsLocal(bc.dof_indices()[0], 1.)
+            self._A.zeroRowsLocal(bc.dof_indices()[0], 1.)  # type: ignore
 
-    def _velocity_tentative_assemble(self):
+    def velocity_tentative_assemble(self):
         """
         Assemble RHS of tentative velocity equation computing the :math:`p^*`-dependent term of
 
         .. math::
 
-            b_k \\mathrel{+}= b(u_k^{n-1}) + \\int_{\\Omega} 
+            b_k \\mathrel{+}= b(u_k^{n-1}) + \\int_{\\Omega}
             \\frac{\\partial p^*}{\\partial x_k}v_k~\\mathrm{d}x.
 
         :math:`b(u_k^{n-1})` is computed in `assemble_first`.
@@ -297,21 +299,21 @@ class FractionalStep_AB_CN():
             # Using the fact that all the gradient forms has the same coefficient
             coeffs = _cpp.fem.pack_coefficients(self._grad_p[0])
             for i in range(self._mesh.geometry.dim):
-                self._gp[i].x.set(0.)
+                self._b_gp[i].x.set(0.)
                 _fem.petsc.assemble_vector(
-                    self._b_gp[i], self._grad_p[i], coeffs=coeffs, constants=[])
+                    self._b_gp[i].vector, self._grad_p[i], coeffs=coeffs, constants=[])
                 self._b_gp[i].x.scatter_reverse(_la.ScatterMode.add)
                 self._b_gp[i].x.scatter_forward()
         else:
             for i in range(self._mesh.geometry.dim):
-                self._gp[i].x.set(0.)
+                self._b_gp[i].x.set(0.)
                 self._grad_p_M[i].mult(self._ps.vector, self._b_gp[i].vector)
                 self._b_gp[i].x.scatter_forward()
         # Update RHS
         for i in range(self._mesh.geometry.dim):
             self._b_u[i].x.array[:] = self._b_tmp[i].x.array - self._b_gp[i].x.array
 
-    def _velocity_tenative_solve(self) -> Tuple[np.float64, npt.NDArray[np.int32]]:
+    def velocity_tentative_solve(self) -> Tuple[float, npt.NDArray[np.int32]]:
         """
         Apply Dirichlet boundary condition to RHS vector and solver linear algebra system
 
@@ -322,18 +324,19 @@ class FractionalStep_AB_CN():
         errors = np.zeros(self._mesh.geometry.dim, dtype=np.int32)
         for i in range(self._mesh.geometry.dim):
             _fem.petsc.set_bc(self._b_u[i].vector, self._bc_u[i])
-            # Use u_k^n-2dt as temporary storage, as it is only used in `assemble_first`
-            self._u2[i].x.array[:] = self._u[i].array
-            errors[i] = self._solver_u.solve(self._b_u[i], self._u[i])
+            # Use temporary storage, as it is only used in `assemble_first`
+            self._u[i].vector.copy(result=self._b_matvec.vector)
+            errors[i] = self._solver_u.solve(self._b_u[i].vector, self._u[i])
 
-            # Use _b_matvec for computing the l2 difference
-            self._b_matvec.x.array[:] = self._u[i].x.array - self._u2[i].x.array
+            # Compute difference from last inner iter
+            self._b_matvec.vector.axpy(-1, self._u[i].vector)
             diff += self._b_matvec.vector.norm(_PETSc.NormType.NORM_2)
         return diff, errors
 
-    def tenative_velocity(self, dt: float, nu: float, max_error: float = 1e-12, max_iter: int = 10) -> np.float64:
+    def tenative_velocity(self, dt: float, nu: float, max_error: float = 1e-12,
+                          max_iter: int = 10) -> float:
         """
-        Propagate the tenative velocity by one step    
+        Propagate the tenative velocity by one step
 
         Args:
             dt: The time step
@@ -346,10 +349,12 @@ class FractionalStep_AB_CN():
         """
         inner_it = 0
         diff = 1e8
-        self._assemble_first(dt, nu)
+        self.assemble_first(dt, nu)
         while inner_it < max_iter and diff > max_error:
             inner_it += 1
-            self._velocity_tentative_assemble()
-            diff, errors = self._velocity_tenative_solve()
+            self.velocity_tentative_assemble()
+            diff, errors = self.velocity_tentative_solve()
             assert (errors > 0).all()
+            print(inner_it, diff, errors)
+            # print(self._u[0].x.array)
         return diff

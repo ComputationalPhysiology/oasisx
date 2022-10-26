@@ -7,6 +7,7 @@ from petsc4py import PETSc as _PETSc
 import dolfinx.fem as _fem
 import typing
 from mpi4py import MPI
+import numpy as np
 
 
 class KSPSolver:
@@ -45,9 +46,10 @@ class KSPSolver:
         else:
             self._ksp.setOperators(A, P)
 
-    def solve(self, b: _PETSc.Vec, x: _fem.Function):
+    def solve(self, b: _PETSc.Vec, x: _fem.Function) -> np.int32:
         self._ksp.solve(b, x.vector)
         x.x.scatter_forward()
+        return np.int32(self._ksp.getConvergedReason())
 
     def __del__(self):
         """
