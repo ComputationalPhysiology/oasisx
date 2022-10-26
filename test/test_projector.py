@@ -1,3 +1,8 @@
+# Copyright (C) 2022 Jørgen Schartum Dokken
+#
+# This file is part of Oasisx
+# SPDX-License-Identifier:    MIT
+
 from oasisx import Projector
 
 import dolfinx

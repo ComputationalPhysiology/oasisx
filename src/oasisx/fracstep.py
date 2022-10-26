@@ -3,7 +3,7 @@
 # This file is part of Oasisx
 # SPDX-License-Identifier:    MIT
 
-from typing import List, Tuple, Optional
+from typing import Callable, List, Tuple, Optional, Union
 
 import numpy.typing as npt
 import ufl
@@ -36,6 +36,10 @@ class FractionalStep_AB_CN():
             `"low_memory_version"` `True`/`False` changes if :math:`\\int\\nabla_k p^* v~\\mathrm{d}x` is
             assembled as `True`: directly into a vector or `False`: matrix-vector product.
             Default value: True
+            '"bc_topological"` `True`/`False`. changes how the Dirichlet dofs are located.
+            If True `facet_markers` has to be supplied.
+        bc_markers: If `"bc_topological"` is True then the input should be a list of facets to apply the velocity bcs on
+
         body_force: List of forces acting in each direction (x,y,z)
     """
 
@@ -97,8 +101,13 @@ class FractionalStep_AB_CN():
     __slots__ = tuple(__annotations__)
 
     def __init__(self, mesh: _dmesh.Mesh, u_element: Tuple[str, int],
-                 p_element: Tuple[str, int], solver_options: dict = None,
-                 jit_options: dict = None, body_force: Optional[ufl.core.expr.Expr] = None,
+                 p_element: Tuple[str, int],
+                 #  bc_markers: Union[Tuple[npt.NDArray[np.int32], npt.NDArray[np.int32]],
+                 #                    Callable[[npt.NDArray[np.float64]], npt.NDArray[np.bool8]]],
+                 #  bc_values: List[Union[_PETSc.ScalarType, Callable[[npt.NDArray[np.float64]],
+                 #                                                    npt.NDArray[_PETSc.ScalarType]]]],
+                 solver_options: dict = None, jit_options: dict = None,
+                 body_force: Optional[ufl.core.expr.Expr] = None,
                  options: dict = None):
         self._mesh = mesh
 
