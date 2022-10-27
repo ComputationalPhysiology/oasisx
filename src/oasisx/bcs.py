@@ -11,6 +11,7 @@ import dolfinx.mesh as _dmesh
 import dolfinx.fem as _fem
 import numpy as np
 import numpy.typing as npt
+from petsc4py import PETSc as _PETSc
 
 __all__ = ["DirichletBC", "LocatorMethod"]
 
@@ -55,7 +56,11 @@ class DirichletBC():
         self._dofs = None
         self._value = value
 
-    def set_dofs(dofs: npt.NDArray[np.int32]):
+    @property
+    def dofs(self) -> npt.NDArray[np.int32]:
+        return self._dofs
+
+    def set_dofs(self, dofs: npt.NDArray[np.int32]):
         self._dofs = dofs
 
     def _locate_dofs(self, V: _fem.FunctionSpace):
@@ -80,3 +85,16 @@ class DirichletBC():
             self._u = _fem.Function(V)
             self._u.interpolate(self._value)
             self._bc = _fem.dirichletbc(self._u, self._dofs)
+
+    def update_bc(self):
+        """
+        Update the underlying function if input value is a lambda function
+        """
+        if self._u is not None:
+            self._u.interpolate(self._value)
+
+    def apply(self, x: _PETSc.Vec):
+        """
+        Apply boundary condition to a PETSc vector
+        """
+        _fem.petsc.set_bc(x, [self._bc])
