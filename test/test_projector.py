@@ -21,7 +21,9 @@ def test_projector():
 
     # Create gradient projector
     W = dolfinx.fem.VectorFunctionSpace(mesh, ("DG", 1))
-    gradient_projector = Projector(ufl.grad(u), W, [])
+    petsc_options = {"ksp_type": "preonly", "pc_type": "lu",
+                     "pc_factor_mat_solver_type": "mumps"}
+    gradient_projector = Projector(ufl.grad(u), W, [], petsc_options=petsc_options)
     gradient_projector.solve()
 
     # assemle L2 error

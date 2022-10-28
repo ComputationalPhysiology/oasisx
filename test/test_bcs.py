@@ -9,7 +9,7 @@ import dolfinx
 import numpy as np
 import pytest
 from mpi4py import MPI
-from oasisx import DirichletBC
+from oasisx import DirichletBC, LocatorMethod
 
 
 @pytest.mark.parametrize("P", np.arange(1, 5))
@@ -31,7 +31,7 @@ def test_function_geometrical(P):
 
     condition_0 = TimeDependentBC(0.1)
 
-    bc = DirichletBC(condition_0.eval, geometrical=locator)
+    bc = DirichletBC(condition_0.eval,  LocatorMethod.GEOMETRICAL, locator)
 
     V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", int(P)))
     bc.create_bc(V)
@@ -73,7 +73,7 @@ def test_function_topological(P, dim):
     entities = dolfinx.mesh.locate_entities(mesh, dim, locator)
     value = np.int32(3)
     et = dolfinx.mesh.meshtags(mesh, dim, entities, np.full(len(entities), value, dtype=np.int32))
-    bc = DirichletBC(condition_0.eval, topological=(et, value))
+    bc = DirichletBC(condition_0.eval,  LocatorMethod.TOPOLOGICAL, (et, value))
 
     V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", int(P)))
     bc.create_bc(V)
@@ -105,7 +105,7 @@ def test_constant_geometrical(P):
 
     time = dolfinx.fem.Constant(mesh, 1.)
 
-    bc = DirichletBC(time, geometrical=locator)
+    bc = DirichletBC(time,  LocatorMethod.GEOMETRICAL, locator)
 
     V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", int(P)))
     bc.create_bc(V)
@@ -138,7 +138,7 @@ def test_constant_topological(P, dim):
     entities = dolfinx.mesh.locate_entities(mesh, dim, locator)
     value = np.int32(3)
     et = dolfinx.mesh.meshtags(mesh, dim, entities, np.full(len(entities), value, dtype=np.int32))
-    bc = DirichletBC(time, topological=(et, value))
+    bc = DirichletBC(time, LocatorMethod.TOPOLOGICAL, (et, value))
 
     V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", int(P)))
     bc.create_bc(V)

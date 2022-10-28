@@ -3,17 +3,19 @@
 # This file is part of Oasisx
 # SPDX-License-Identifier:    MIT
 
-from typing import Callable, List, Tuple, Optional, Union
+from typing import List, Optional, Tuple
 
+import numpy as np
 import numpy.typing as npt
 import ufl
-import numpy as np
 from dolfinx import cpp as _cpp
-from dolfinx import fem as _fem, la as _la
+from dolfinx import fem as _fem
+from dolfinx import la as _la
 from dolfinx import mesh as _dmesh
-from .ksp import KSPSolver
 from petsc4py import PETSc as _PETSc
 
+from .bcs import DirichletBC
+from .ksp import KSPSolver
 
 __all__ = ["FractionalStep_AB_CN"]
 
@@ -29,17 +31,18 @@ class FractionalStep_AB_CN():
             degree of the element used for the velocity
         p_element: A tuple describing the finite element family and
             degree of the element used for the pressure
+        bcs_u: List of Dirichlet BCs for each component of the velocity
+        bcs_p: List of Dirichlet BCs for the pressure
         solver_options: Dictionary with keys `'tentative'`, `'pressure'` and `'scalar'`,
             where each key leads to a dictionary of of PETSc options for each problem
         jit_options: Just in time parameters, to optimize form compilation
         options: Options for the Oasis solver.
-            `"low_memory_version"` `True`/`False` changes if :math:`\\int\\nabla_k p^* v~\\mathrm{d}x` is
-            assembled as `True`: directly into a vector or `False`: matrix-vector product.
+            `"low_memory_version"` `True`/`False` changes if
+            :math:`\\int\\nabla_k p^* v~\\mathrm{d}x` is assembled as
+            `True`: directly into a vector or `False`: matrix-vector product.
             Default value: True
             '"bc_topological"` `True`/`False`. changes how the Dirichlet dofs are located.
             If True `facet_markers` has to be supplied.
-        bc_markers: If `"bc_topological"` is True then the input should be a list of facets to apply the velocity bcs on
-
         body_force: List of forces acting in each direction (x,y,z)
     """
 
@@ -53,8 +56,8 @@ class FractionalStep_AB_CN():
 
     _mass_Vi: _fem.FormMetaClass  # Compiled form for mass matrix
     _M: _PETSc.Mat  # Mass matrix
-    _bc_u: List[List[_fem.DirichletBCMetaClass]]
-    _bc_p: List[_fem.DirichletBCMetaClass]
+    _bcs_u: List[List[DirichletBC]]
+    _bcs_p: List[DirichletBC]
 
     # -----------------------Tentative velocity step----------------------------
     _u: List[_fem.Function]  # Velocity at time t
@@ -62,6 +65,7 @@ class FractionalStep_AB_CN():
     _u2: List[_fem.Function]  # Velocity at time t - 2*dt
     _uab: List[_fem.Function]  # Explicit part of Adam Bashforth convection term
     _ps: _fem.Function  # Pressure at time t - 3/2 dt
+    _sol_u: _fem.Function  # Tentative velocity as vector function (for outputting)
     _solver_u: KSPSolver
 
     _conv_Vi: _fem.FormMetaClass  # Compiled form of Adam Bashforth convection
@@ -101,11 +105,8 @@ class FractionalStep_AB_CN():
     __slots__ = tuple(__annotations__)
 
     def __init__(self, mesh: _dmesh.Mesh, u_element: Tuple[str, int],
-                 p_element: Tuple[str, int],
-                 #  bc_markers: Union[Tuple[npt.NDArray[np.int32], npt.NDArray[np.int32]],
-                 #                    Callable[[npt.NDArray[np.float64]], npt.NDArray[np.bool8]]],
-                 #  bc_values: List[Union[_PETSc.ScalarType, Callable[[npt.NDArray[np.float64]],
-                 #                                                    npt.NDArray[_PETSc.ScalarType]]]],
+                 p_element: Tuple[str, int], bcs_u: List[List[DirichletBC]],
+                 bcs_p: List[DirichletBC],
                  solver_options: dict = None, jit_options: dict = None,
                  body_force: Optional[ufl.core.expr.Expr] = None,
                  options: dict = None):
@@ -116,11 +117,19 @@ class FractionalStep_AB_CN():
 
         # Initialize velocity functions for variational problem
         self._V = _fem.FunctionSpace(mesh, v_el)
+        self._sol_u = _fem.Function(self._V)  # Function for outputting vector functions
+
         self._Vi = [self._V.sub(i).collapse() for i in range(self._V.num_sub_spaces)]
         self._u = [_fem.Function(Vi[0], name=f"u{i}") for (i, Vi) in enumerate(self._Vi)]
         self._u1 = [_fem.Function(Vi[0], name=f"u_{i}1") for (i, Vi) in enumerate(self._Vi)]
         self._u2 = [_fem.Function(Vi[0], name=f"u_{i}2") for (i, Vi) in enumerate(self._Vi)]
         self._uab = [_fem.Function(Vi[0], name=f"u_{i}ab") for (i, Vi) in enumerate(self._Vi)]
+
+        # Create boundary conditons for velocity spaces
+        self._bcs_u = bcs_u
+        for bc_i, Vi in zip(self._bcs_u, self._Vi):
+            for bc in bc_i:
+                bc.create_bc(Vi[0])
 
         # Working arrays
         self._b_tmp = [_fem.Function(Vi[0]) for (i, Vi) in enumerate(
@@ -140,6 +149,11 @@ class FractionalStep_AB_CN():
         self._p = _fem.Function(self._Q)
         self._dp = _fem.Function(self._Q)
 
+        # Create boundary conditions for pressure space
+        self._bcs_p = bcs_p
+        for bc in self._bcs_p:
+            bc.create_bc(self._Q)
+
         # Create solvers for each step
         solver_options = {} if solver_options is None else solver_options
         self._solver_u = KSPSolver(mesh.comm, solver_options.get("tentative"))
@@ -155,13 +169,6 @@ class FractionalStep_AB_CN():
         if body_force is None:
             body_force = (0.,) * mesh.geometry.dim
         self._compile_and_allocate_forms(body_force, jit_options)
-
-        # Analyze boundary conditions, bc_u, bc_p. Should probably be a dictionary with
-        # bcs = {"u":[(Method, locator, interpolant)], "p": [(Method, locator, interpolant)]}
-        # where method is an enum (topological, geometrical), and locator and
-        # interpolant are lambda functions
-        self._bc_u = [[] for _ in range(self._mesh.geometry.dim)]
-        self._bc_p = []
 
         # Assemble constant matrices
         self._preassemble()
@@ -238,8 +245,10 @@ class FractionalStep_AB_CN():
 
         # Assemble constant body forces
         for i in range(len(self._u)):
+
             self._b0[i].x.set(0.0)
             _fem.petsc.assemble_vector(self._b0[i].vector, self._body_force[i])
+            self._b0[i].x.scatter_reverse(_la.ScatterMode.add)
 
     def assemble_first(self, dt: float, nu: float):
         """
@@ -260,7 +269,6 @@ class FractionalStep_AB_CN():
             dt: The time step
             nu: The kinematic viscosity
         """
-        self._u1[0].x.array[:] = 2
         # Update explicit part of Adam-Bashforth approximation with previous time step
         for i, (u_ab, u_1, u_2) in enumerate(zip(self._uab, self._u1, self._u2)):
             u_ab.x.set(0)
@@ -282,7 +290,6 @@ class FractionalStep_AB_CN():
 
             # Add transient convection and difffusion
             self._A.mult(self._u1[i].vector, self._b_matvec.vector)
-            self._b_matvec.x.scatter_reverse(_la.ScatterMode.add)
             self._b_matvec.x.scatter_forward()
             self._b_tmp[i].x.array[:] += self._b_matvec.x.array[:]
 
@@ -290,8 +297,8 @@ class FractionalStep_AB_CN():
         self._A.scale(-1)
         self._A.axpy(2./dt, self._M,  _PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
         # NOTE: This would not work if we have different DirichletBCs on different components
-        for bc in self._bc_u[0]:
-            self._A.zeroRowsLocal(bc.dof_indices()[0], 1.)  # type: ignore
+        for bc in self._bcs_u[0]:
+            self._A.zeroRowsLocal(bc._bc.dof_indices()[0], 1.)  # type: ignore
 
     def velocity_tentative_assemble(self):
         """
@@ -302,7 +309,7 @@ class FractionalStep_AB_CN():
             b_k \\mathrel{+}= b(u_k^{n-1}) + \\int_{\\Omega}
             \\frac{\\partial p^*}{\\partial x_k}v_k~\\mathrm{d}x.
 
-        :math:`b(u_k^{n-1})` is computed in `assemble_first`.
+        :math:`b(u_k^{n-1})` is computed in :py:obj:`FractionalStep_AB_CN.assemble_first`.
         """
         if self._low_memory:
             # Using the fact that all the gradient forms has the same coefficient
@@ -329,10 +336,12 @@ class FractionalStep_AB_CN():
         Returns the difference between the two solutions and the solver error codes
         """
         self._solver_u.setOperators(self._A)
+        self._solver_u.setOptions(self._A)
         diff = 0
         errors = np.zeros(self._mesh.geometry.dim, dtype=np.int32)
         for i in range(self._mesh.geometry.dim):
-            _fem.petsc.set_bc(self._b_u[i].vector, self._bc_u[i])
+            for bc in self._bcs_u[i]:
+                bc.apply(self._b_u[i].vector)
             # Use temporary storage, as it is only used in `assemble_first`
             self._u[i].vector.copy(result=self._b_matvec.vector)
             errors[i] = self._solver_u.solve(self._b_u[i].vector, self._u[i])
@@ -364,6 +373,13 @@ class FractionalStep_AB_CN():
             self.velocity_tentative_assemble()
             diff, errors = self.velocity_tentative_solve()
             assert (errors > 0).all()
-            print(inner_it, diff, errors)
-            # print(self._u[0].x.array)
         return diff
+
+    @property
+    def u_star(self):
+        """
+        Return the solution to the tentative velocity equation as a vector function
+        """
+        for ui, (Vi, map) in zip(self._u, self._Vi):
+            self._sol_u.x.array[map] = ui.x.array
+        return self._sol_u
