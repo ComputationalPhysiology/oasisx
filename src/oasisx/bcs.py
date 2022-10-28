@@ -20,8 +20,12 @@ class LocatorMethod(Enum):
     """
     Search methods for Dirichlet BCs
     """
-    TOPOLOGICAL = 1  # doc: ""Topological search"""
-    GEOMETRICAL = 2  # doc: """Geometrical search"""
+    GEOMETRICAL = 1
+    TOPOLOGICAL = 2
+
+
+LocatorMethod.TOPOLOGICAL.__doc__ = "Topogical search for dofs"
+LocatorMethod.GEOMETRICAL.__doc__ = "Geometrical search for dofs"
 
 
 class DirichletBC():
@@ -31,10 +35,10 @@ class DirichletBC():
     Args:
         value: The value the degrees of freedom should have. It can be a float, a
             `dolfinx.fem.Constant` or a lambda-function.
-        method: `oasisx.LocatorMethod`.
-        marker: If :py:obj:`oasisx.LocatorMethod.TOPOLOGICAL` the input in `marker` should
+        method: Locator method for marker.
+        marker: If :py:obj:`oasisx.LocatorMethod.TOPOLOGICAL` the input should
             be a tuple of a mesh tag and the corresponding value for the entities to assign
-            Dirichlet conditions to. If :py:obj:`oasisx.LocatorMethod.GEOMETRICAL` the marker
+            Dirichlet conditions to. If :py:obj:`oasisx.LocatorMethod.GEOMETRICAL` the input
             is a lambda function taking in x, y, and z coordinates (ordered as
             `[[x0, x1,...,xn], [y0,...,yn], [z0,...,zn]]`), and return a boolean marker where
             the ith entry indicates if `[xi, yi, zi]` should have a diriclet bc.
