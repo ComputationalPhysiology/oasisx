@@ -84,24 +84,27 @@ class FractionalStep_AB_CN():
     _grad_p_M: List[_PETSc.Mat]  # Matrix for grad-p operator
     _K: _PETSc.Mat  # Stiffness matrix
 
-    _low_memory: bool  # Indicating if grad(p) term is assembled as vector or matrix
+    # Indicating if grad(p)*v*dx and div(u)*q*dx term is assembled as vector or matrix-vector product
+    _low_memory: bool
 
     # ----------------------Pressure correction---------------------------------
     _p: _fem.Function  # Pressure at time t - 1/2 dt
     _dp: _fem.Function  # Pressure correction
     _b_c: _fem.Function  # Function for holding RHS of pressure correction
+    _same_space: bool  # Indicator if V and Q are the same
 
     _solver_p: KSPSolver
     _stiffness_Q: _fem.FormMetaClass  # Compiled form for pressure Laplacian
-    _p_rhs: _fem.FormMetaClass
-
+    _p_rhs: List[_fem.FormMetaClass]  # List of rhs for pressure correction
+    _p_M: List[_PETSc.Mat]  # Matrices for non-low memory version of RHS assembly
     _Ap: _PETSc.Mat  # Pressure Laplacian
+    _p_tmp: _fem.Function  # Working vector for matrix vector    products in non-low memory version
 
     # ----------------------Velocity update-------------------------------------
     _solver_c: KSPSolver
     _c_rhs: List[_fem.FormMetaClass]  # List of velocity update terms for each component
     _p_b: _fem.Function
-
+    _tmp_update: _fem.Function
     __slots__ = tuple(__annotations__)
 
     def __init__(self, mesh: _dmesh.Mesh, u_element: Tuple[str, int],
@@ -114,6 +117,8 @@ class FractionalStep_AB_CN():
 
         v_el = ufl.VectorElement(u_element[0], mesh.ufl_cell(), u_element[1])
         p_el = ufl.FiniteElement(p_element[0], mesh.ufl_cell(), p_element[1])
+        if v_el.extract_component(0)[1] == p_el:
+            self._same_space = True
 
         # Initialize velocity functions for variational problem
         self._V = _fem.FunctionSpace(mesh, v_el)
@@ -145,9 +150,10 @@ class FractionalStep_AB_CN():
 
         # Initialize pressure functions for varitional problem
         self._Q = _fem.FunctionSpace(mesh, p_el)
-        self._ps = _fem.Function(self._Q)
+        self._ps = _fem.Function(self._Q)  # Pressure used in tentative velocity scheme
         self._p = _fem.Function(self._Q)
         self._dp = _fem.Function(self._Q)
+        self._b_c = _fem.Function(self._Q)
 
         # Create boundary conditions for pressure space
         self._bcs_p = bcs_p
@@ -172,6 +178,11 @@ class FractionalStep_AB_CN():
 
         # Assemble constant matrices
         self._preassemble()
+
+        # Set solver operator
+        self._solver_p.setOperators(self._Ap)
+        self._solver_p.setOptions(self._Ap)
+        self._solver_c.setOperators(self._Ap)
 
     def _compile_and_allocate_forms(self, body_force: ufl.core.expr.Expr,
                                     jit_options: dict):
@@ -213,17 +224,29 @@ class FractionalStep_AB_CN():
 
         # Pressure Laplacian/stiffness matrix
         q = ufl.TestFunction(self._Q)
-        self._stiffness_Q = _fem.form(ufl.inner(ufl.grad(p), ufl.grad(q))*ufl.dx,
-                                      jit_params=jit_options)
-        self._Ap = _fem.petsc.create_matrix(self._stiffness_Q)
+        if self._same_space:
+            self._Ap = self._K
+        else:
+            self._stiffness_Q = _fem.form(ufl.inner(ufl.grad(p), ufl.grad(q))*ufl.dx,
+                                          jit_params=jit_options)
+            self._Ap = _fem.petsc.create_matrix(self._stiffness_Q)
 
         # RHS for pressure correction (unscaled)
-        self._p_rhs = _fem.form(ufl.div(ufl.as_vector(self._u))*q*dx, jit_params=jit_options)
-        self._p_b = _fem.Function(self._Q)
+        if self._low_memory:
+            self._p_rhs = [_fem.form(ufl.div(ufl.as_vector(self._u))*q*dx, jit_params=jit_options)]
+        else:
+            self._p_rhs = [_fem.form(u.dx(i)*q*dx, jit_params=jit_options)
+                           for i in range(self._mesh.geometry.dim)]
+            self._p_M = [_fem.form.create_matrix(rhs) for rhs in self._p_rhs]
+            self._p_tmp = _fem.Function(self._Q)
 
+        # ---------------------------Velocity update-----------------------
         # RHS for velocity update
-        self._c_rhs = [_fem.form(self._p.dx(i) * v*dx, jit_params=jit_options)
-                       for i in range(len(self._Vi))]
+        self._p_b = _fem.Function(self._V)
+        self._tmp_update = _fem.Function(self._V)
+        if self._low_memory:
+            self._c_rhs = [_fem.form(self._p.dx(i) * v*dx, jit_params=jit_options)
+                           for i in range(len(self._Vi))]
 
         # Convection term for Adams Bashforth step
         self._conv_Vi = _fem.form(ufl.inner(ufl.dot(ufl.as_vector(self._uab),
@@ -235,17 +258,26 @@ class FractionalStep_AB_CN():
         self._M.assemble()
         _fem.petsc.assemble_matrix(self._K, self._stiffness_Vi)
         self._K.assemble()
-        _fem.petsc.assemble_matrix(self._Ap, self._stiffness_Q)
-        self._Ap.assemble()
+        if not self._same_space:
+            _fem.petsc.assemble_matrix(self._Ap, self._stiffness_Q)
+            self._Ap.assemble()
+
+        if len(self._bcs_p) == 0:
+            nullspace = _PETSc.NullSpace().create(constant=True, comm=self._mesh.comm)
+            self._Ap.setNullSpace(nullspace)
 
         if not self._low_memory:
-            [_fem.petsc.assemble_matrix(self._grad_p_M[i], self._grad_p[i])
-             for i in range(self._mesh.geometry.dim)]
-            [M.assemble() for M in self._grad_p_M]
+            for i in range(self._mesh.geometry.dim):
+                # Preassemble pressure matrix for tentantive velocity
+                _fem.petsc.assemble_matrix(self._grad_p_M[i], self._grad_p[i])
+                self._grad_p_M[i].assemble()
+
+                # Assemble pressure RHS matrices
+                _fem.petsc.assemble_matrix(self._p_M[i], self._p_rhs[i])
+                self._p_M[i].assemble()
 
         # Assemble constant body forces
         for i in range(len(self._u)):
-
             self._b0[i].x.set(0.0)
             _fem.petsc.assemble_vector(self._b0[i].vector, self._body_force[i])
             self._b0[i].x.scatter_reverse(_la.ScatterMode.add)
@@ -374,6 +406,60 @@ class FractionalStep_AB_CN():
             diff, errors = self.velocity_tentative_solve()
             assert (errors > 0).all()
         return diff
+
+    def pressure_assemble(self, dt: float):
+        """
+        Assemble RHS for pressure correction term        
+
+        .. math::
+
+            b_c = \\int_{\\Omega} \\mathrm{div} u^l q~\\mathrm{d}x.
+
+        """
+        if self._low_memory:
+            _fem.petsc.assemble_vector(self._b_c.vector, self._p_rhs[0])
+        else:
+            self._b_c.x.set(0.)
+            for i in range(self._mesh.geometry.dim):
+                self._p_M[i].mult(self._u[i].vector, self._p_tmp.vector)
+                self._b_c.vector.axpy(1/dt, self._p_tmp.vector)
+        self._b_c.x.scatter_forward()
+
+    def pressure_solve(self) -> np.int32:
+        """
+        Solve pressure correction problem 
+        """
+        # Set pressure DirichletBC condition for time (t+dt/2)
+        _fem.petsc.set_bc(self._b_c.vector, self._bcs_p)
+
+        # Set difference vector to previous time step
+        self._dp.x.array[:] = -self._ps.x.array[:]
+
+        if len(self._bcs_p) == 0:
+            nullspace = self._Ap.getNullSpace()
+            nullspace.remove(self._b_c.vector)
+        converged = self._solver_p.solve(self._b_c.vector, self._p)
+
+        # Compute phi  = p^(n-1/2) - p*
+        self._dp.vector.axpy(1, self._p.vector)
+        return converged
+
+    def velocity_update(self, dt) -> npt.NDArray[np.int32]:
+        """
+        Compute Velocity update
+        """
+        errors = np.zeros(self._mesh.geometry.dim, dtype=np.int32)
+        if self._low_memory:
+            for i in range(self._mesh.geometry.dim):
+                self._M.mult(self._u[i].vector, self._p_b.vector)
+                self._tmp_update.x.set(0)
+                _fem.petsc.assemble_vector(self._tmp_update.vector, self._c_rhs[i])
+                self._c_rhs[i].x.scatter_reverse(_la.ScatterMode.add)
+                self._p_b.axpy(-dt, self._tmp_update.vector)
+                errors[i] = self._solver_c.solve(self._p_b.vector, self._u[i])
+        else:
+            raise NotImplementedError("Implement tomorrow")
+        return errors
 
     @property
     def u_star(self):

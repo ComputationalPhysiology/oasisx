@@ -76,7 +76,7 @@ def create_tentative_forms(mesh: dolfinx.mesh.Mesh,
 def test_tentative(low_memory, body_force):
     mesh = dolfinx.mesh.create_unit_square(MPI.COMM_WORLD, 10, 10)
     dim = mesh.topology.dim - 1
-    el_u = ("Lagrange", 2)
+    el_u = ("CG", 1)
     el_p = ("Lagrange", 1)
 
     solver_options = {"tentative": {"ksp_type": "preonly", "pc_type": "lu"}}
@@ -179,9 +179,16 @@ def test_tentative(low_memory, body_force):
         assert diff.max() < 1e-14
 
     # Compare vectors
-    solver.velocity_tentative_solve()
+    converged_u = solver.velocity_tentative_solve()
     for i in range(mesh.geometry.dim):
+        assert converged_u[1][i]
         assert np.allclose(solver._b_u[i].vector.array, bs[i].array)
 
+    solver.pressure_assemble(dt)
+    converged_p = solver.pressure_solve()
+
+    converged_update = solver.velocity_update(dt)
+    from IPython import embed
+    embed()
     # with dolfinx.io.VTXWriter(mesh.comm, "u.bp", [solver.u_star]) as vtx:
     #     vtx.write(0.)
