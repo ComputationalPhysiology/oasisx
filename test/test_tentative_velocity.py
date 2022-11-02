@@ -93,14 +93,20 @@ def test_tentative(low_memory, body_force):
     def top_and_bottom(x):
         return np.logical_or(np.isclose(x[1], 0), np.isclose(x[1], 1))
 
+    def outlet(x):
+        return np.isclose(x[0], 1)
+
     # Locate facets for boundary conditions and create meshtags
     left_facets = dolfinx.mesh.locate_entities_boundary(mesh, dim, left_edge)
     left_value = 1
     tb_facets = dolfinx.mesh.locate_entities_boundary(mesh, dim, top_and_bottom)
     tb_value = 2
-    facets = np.hstack([left_facets, tb_facets])
+    right_facets = dolfinx.mesh.locate_entities_boundary(mesh, dim, outlet)
+    right_value = 3
+    facets = np.hstack([left_facets, tb_facets, right_facets])
     values = np.hstack([np.full_like(left_facets, left_value, dtype=np.int32),
-                        np.full_like(tb_facets, tb_value, dtype=np.int32)])
+                        np.full_like(tb_facets, tb_value, dtype=np.int32),
+                        np.full_like(right_facets, right_value, dtype=np.int32)])
     sort = np.argsort(facets)
     facet_tags = dolfinx.mesh.meshtags(mesh, dim, facets[sort], values[sort])
 
@@ -118,7 +124,7 @@ def test_tentative(low_memory, body_force):
     bc_inlet_x = DirichletBC(inlet.eval, LocatorMethod.TOPOLOGICAL, (facet_tags, left_value))
     bc_inlet_y = DirichletBC(0., LocatorMethod.TOPOLOGICAL, (facet_tags, left_value))
     bcs_u = [[bc_inlet_x, bc_tb], [bc_inlet_y, bc_tb]]
-    bcs_p = []
+    bcs_p = [DirichletBC(0., LocatorMethod.TOPOLOGICAL, (facet_tags, right_value))]
 
     # Create fractional step solver
     solver = FractionalStep_AB_CN(
@@ -187,8 +193,8 @@ def test_tentative(low_memory, body_force):
     solver.pressure_assemble(dt)
     converged_p = solver.pressure_solve()
 
-    converged_update = solver.velocity_update(dt)
-    from IPython import embed
-    embed()
-    # with dolfinx.io.VTXWriter(mesh.comm, "u.bp", [solver.u_star]) as vtx:
+    # converged_update = solver.velocity_update(dt)
+    # with dolfinx.io.VTXWriter(mesh.comm, "u.bp", [solver.u]) as vtx:
     #     vtx.write(0.)
+    with dolfinx.io.VTXWriter(mesh.comm, "dp.bp", [solver._dp]) as vtx:
+        vtx.write(0.)
