@@ -23,6 +23,7 @@ concurrency:
 env:
   # Directory that will be published on github pages
   PUBLISH_DIR: ./docs/_build/html
+  DEB_PYTHON_INSTALL_LAYOUT: deb_system
 
 jobs:
 
@@ -37,7 +38,6 @@ jobs:
       - name: Upgrade pip and setuptools
         run: |
           python3 -m pip install pip setuptools --upgrade
-          apt-get purge -y python3-setuptools
 
       - name: Install dependencies
         run: python3 -m pip install ".[test,docs]"

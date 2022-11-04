@@ -14,8 +14,9 @@ on:
     # The CI is executed every day at 8am
     - cron: "0 8 * * *"
   
-  env:
-    DEB_PYTHON_INSTALL_LAYOUT: deb_system  
+env:
+  DEB_PYTHON_INSTALL_LAYOUT: deb_system
+    
 jobs:
   check-code:
 
