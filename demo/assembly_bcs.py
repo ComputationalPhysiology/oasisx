@@ -154,7 +154,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         A.scale(-1)
         A.axpy(2/dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
         for bc in bcs:
-            A.zeroRowsLocal(bc.dof_indices()[0], 1.)
+            A.zeroRowsLocal(bc.dof_indices()[0], 1.)  # type: ignore
         end_rescale = time.perf_counter()
         t_matrix = end_rescale - start_rescale + end_lhs - start_lhs
 
@@ -180,7 +180,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         Ax.axpy(1./dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
         Ax.axpy(0.5*nu, K, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
         for bc in bcs:
-            Ax.zeroRowsLocal(bc.dof_indices()[0], 1.)
+            Ax.zeroRowsLocal(bc.dof_indices()[0], 1.)  # type: ignore
         end_lhs_new = time.perf_counter()
 
         mesh.comm.Barrier()

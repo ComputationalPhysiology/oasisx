@@ -427,12 +427,12 @@ class FractionalStep_AB_CN():
                 self._p_M[i].mult(self._u[i].vector, self._p_tmp.vector)
                 self._b_c.vector.axpy(-1/dt, self._p_tmp.vector)
         # Apply boundary conditions to the rhs
-        bc_p = [bc._bc for bc in self._bcs['p']]
+        bc_p = [bc._bc for bc in self._bcs_p]
         self._b_c.x.scatter_reverse(_la.ScatterMode.add)
         _fem.petsc.set_bc(self._b_c.vector, bc_p)
 
         # Set pressure DirichletBC condition for time (t+dt/2)
-        _fem.petsc.set_bc(self._b_c.vector, self._bcs_p)
+        _fem.petsc.set_bc(self._b_c.vector, bc_p)
 
         self._b_c.x.scatter_forward()
 
