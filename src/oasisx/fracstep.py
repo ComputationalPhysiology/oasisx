@@ -84,7 +84,8 @@ class FractionalStep_AB_CN():
     _grad_p_M: List[_PETSc.Mat]  # Matrix for grad-p operator
     _K: _PETSc.Mat  # Stiffness matrix
 
-    # Indicating if grad(p)*v*dx and div(u)*q*dx term is assembled as vector or matrix-vector product
+    # Indicating if grad(p)*v*dx and div(u)*q*dx term is assembled as
+    # vector or matrix-vector product
     _low_memory: bool
 
     # ----------------------Pressure correction---------------------------------
@@ -411,7 +412,7 @@ class FractionalStep_AB_CN():
 
     def pressure_assemble(self, dt: float):
         """
-        Assemble RHS for pressure correction term        
+        Assemble RHS for pressure correction term
 
         .. math::
 
@@ -437,7 +438,7 @@ class FractionalStep_AB_CN():
 
     def pressure_solve(self) -> np.int32:
         """
-        Solve pressure correction problem 
+        Solve pressure correction problem
         """
 
         # Set difference vector to previous time step

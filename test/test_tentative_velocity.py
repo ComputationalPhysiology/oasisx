@@ -192,7 +192,7 @@ def test_tentative(low_memory, body_force):
 
     solver.pressure_assemble(dt)
     converged_p = solver.pressure_solve()
-
+    assert converged_p
     # converged_update = solver.velocity_update(dt)
     # with dolfinx.io.VTXWriter(mesh.comm, "u.bp", [solver.u]) as vtx:
     #     vtx.write(0.)
