@@ -2,7 +2,7 @@
 
 # We use --set-kernel with jupytext to make it possible for binder to pick it up
 doc: # Generate Sphinx HTML documentation, including API docs 
-	jupytext --pre-commit --sync --set-kernel=python3
+	jupytext --sync --set-kernel=python3 docs/*.ipynb
 	jupyter book build -W docs
 
 clean-pytest: # Remove output from pytest
