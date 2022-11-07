@@ -289,24 +289,24 @@ def create_plot(results: dict, outfile: str):
         plt.figure()
         df_rhs = df[df["side"] == "rhs"]
         plot = seaborn.catplot(data=df_rhs, kind="swarm",  x="label",
-                               y="time (s)", hue="method", title="RHS assembly")
-        plot.set(yscale="log")
+                               y="time (s)", hue="method")
+        plot.set(yscale="log", title="RHS assembly")
         plt.grid()
         plt.savefig(f"{outfile}_rhs.png")
 
         plt.figure()
         df_lhs = df[df["side"] == "lhs"]
         plot = seaborn.catplot(data=df_lhs, kind="swarm",  x="label",
-                               y="time (s)", hue="method", title="LHS assembly")
-        plot.set(yscale="log")
+                               y="time (s)", hue="method")
+        plot.set(yscale="log", title="LHS assembly")
         plt.grid()
         plt.savefig(f"{outfile}_lhs.png")
 
         plt.figure()
         df_total = df[df["side"] == "total"]
         plot = seaborn.catplot(data=df_total, kind="swarm",  x="label",
-                               y="time (s)", hue="method", title="Total assembly")
-        plot.set(yscale="log")
+                               y="time (s)", hue="method")
+        plot.set(yscale="log", title="Total assembly")
         plt.grid()
         plt.savefig(f"{outfile}_total.png")
 
