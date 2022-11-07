@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   jupytext:
-#     formats: ipynb,py:light
+#     cell_metadata_filter: -all
 #     text_representation:
 #       extension: .py
 #       format_name: light
@@ -187,11 +187,10 @@ def create_plot(results: dict, outfile: str):
         import matplotlib.pyplot as plt
         plt.grid()
         plt.savefig(outfile)
-
-
 # -
 
 # We start by running the comparison for an increasing number of degrees of freedom on a fixed grid.
+
 
 if __name__ == "__main__":
     results_p = run_parameter_sweep(30, 25, 23, repeats=3, min_degree=1, max_degree=4)
@@ -203,8 +202,8 @@ if __name__ == "__main__":
 # We note that the run for $P=1$ is relatively small, and therefore run $P=1$ on a larger mesh
 
 if __name__ == "__main__":
-    results_p1 = run_parameter_sweep(100, 100, 80, 3, 1, 1)
+    results_p1 = run_parameter_sweep(50, 40, 45, 3, 1, 1)
     create_plot(results_p1, "P1.png")
 
-# We observe that the run-time of both strategies for $P=1$ are more or less the
+# We observe that the run-time of both strategies for $P = 1$ are more or less the
 # same for larger matrices.

@@ -53,3 +53,9 @@ addopts = "--cov=oasisx --cov-report html --cov-append --cov-report term-missing
 testpaths = [
     "test"
 ]
+
+
+[tool.jupytext.formats]
+# Pair notebooks with python file
+"docs/" = "ipynb"
+"demo/" = "py:light"

@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   jupytext:
-#     formats: ipynb,py:light
+#     cell_metadata_filter: -all
 #     text_representation:
 #       extension: .py
 #       format_name: light
@@ -24,7 +24,9 @@
 # 1. Using matrix-vector products of pre-assembled matrices to compute the RHS
 # 2. Assemble the matrix and vector separately
 # We start by importing the necessary modules
+#
 
+# This is a test to check notebooks
 import matplotlib.pyplot as plt
 import time
 import seaborn
@@ -287,30 +289,31 @@ def create_plot(results: dict, outfile: str):
         plt.figure()
         df_rhs = df[df["side"] == "rhs"]
         plot = seaborn.catplot(data=df_rhs, kind="swarm",  x="label",
-                               y="time (s)", hue="method")
+                               y="time (s)", hue="method", title="RHS assembly")
         plot.set(yscale="log")
         plt.grid()
         plt.savefig(f"{outfile}_rhs.png")
+
         plt.figure()
         df_lhs = df[df["side"] == "lhs"]
         plot = seaborn.catplot(data=df_lhs, kind="swarm",  x="label",
-                               y="time (s)", hue="method")
+                               y="time (s)", hue="method", title="LHS assembly")
         plot.set(yscale="log")
         plt.grid()
         plt.savefig(f"{outfile}_lhs.png")
+
         plt.figure()
         df_total = df[df["side"] == "total"]
         plot = seaborn.catplot(data=df_total, kind="swarm",  x="label",
-                               y="time (s)", hue="method")
+                               y="time (s)", hue="method", title="Total assembly")
         plot.set(yscale="log")
         plt.grid()
         plt.savefig(f"{outfile}_total.png")
 
+
 # -
-
-
 # We start by running the comparison for an increasing number of degrees of freedom on a fixed grid.
 if __name__ == "__main__":
-    N = 100
+    N = 40
     results_p = run_parameter_sweep(N, N, N, repeats=3, min_degree=1, max_degree=3)
     create_plot(results_p, "results")
