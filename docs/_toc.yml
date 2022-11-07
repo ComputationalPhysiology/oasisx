@@ -6,6 +6,7 @@ parts:
     chapters:
     - file: "splitting_schemes"
     - file: "assembly_strategies"
+    - file: "assembly_bcs"
 
   - caption: Python API
     chapters:
