@@ -1,4 +1,7 @@
 # Splitting schemes
+
+Author: Jørgen S. Dokken
+
 As described in {cite}`Oasis-2015` Oasisx uses a fractional step method for solving the Navier-Stokes equations.
 This means that we are solving the set of equations:
 
@@ -16,6 +19,146 @@ $$
 where $\mathbf{u} = (u_1(\mathbf{x}, t), \dots, u_d(\mathbf{x}, t))$ is the velocity vector, $\nu$ the kinematic viscosity, $p(\mathbf{x}, t)$ the fluid pressure and $\mathbf{f}(\mathbf{x}, t)$ are the volumetric forces. The fluid density is incorporated with the pressure $p$.
 We use the a pseudo-traction boundary condition on $\partial\Omega_N$, where $h=0$ corresponds to the natural boundary condition. We use $\frac{\partial{\cdot}}{\partial \mathbf{n}}= \mathbf{n}^T(\nabla\cdot)$.
 
+We assume that $\partial\Omega=\partial\Omega_N\cup \partial \Omega_D$,  $\partial \Omega_N \cap \partial \Omega_D = \emptyset$. If $\partial \Omega_N = \emptyset$ we have the additional constraints 
+
+$$
+\begin{align}
+\int_\Omega p ~\mathrm{d}x &= 0\\
+\int_{\partial\Omega}\mathbf{g}\cdot \mathbf{n}~\mathrm{d}s &= 0
+\end{align}
+$$
+
+For the initial condition, we have that $\mathbf{u}(x, 0)=\mathbf{u}_0$, where $\nabla \cdot \mathbf{u}_0=0$ and $\mathbf{u}_0\cdot \mathbf{n} = \mathbf{g}(x,0)\cdot \mathbf{n}$.
+
+## Stokes equation
+The following section will follow a similar derivation as done by Timmermans {cite}`timmermans1996`.
+We start by considering a simpler problem, namely solving
+
+$$
+\begin{align}
+\frac{\partial \mathbf{u}}{\partial t} - \nu \Delta \mathbf{u} + \nabla p &= f &&\text{ in } \Omega\\
+\nabla \cdot \mathbf{u} &= 0 &&\text{ in } \Omega\\
+\mathbf{u} &= \mathbf{g}(x,t) &&\text{ on } \partial \Omega_D\\
+\nu \frac{\partial \mathbf{u}}{\partial n} - p \mathbf{n} &= \mathbf{h} &&\text{ on }\partial\Omega_N
+\end{align}
+$$
+
+We use a Crank-Nicolson discretization in time, and thus want to solve
+
+$$
+\begin{align}
+\frac{\mathbf{u}^n-\mathbf{u}^{n-1}}{\Delta t} - \frac{\nu}{2}\Delta(u^n+u^{n-1}) +\nabla p^{n+\frac{1}{2}} &= f^{n-\frac{1}{2}} && \text{ in } \Omega \\
+\nabla \cdot u^n &= 0 && \text{ in } \Omega \\
+\mathbf{u}^n &=\mathbf{g}^n && \text{ on } \partial \Omega_D\\
+\frac{\nu}{2}\frac{\partial (\mathbf{u}^n + \mathbf{u}^{n-1})}{\partial n} - p^{n-\frac{1}{2}}\mathbf{n} &= \mathbf{h}^{n-\frac{1}{2}}&& \text{ on } \partial \Omega_N
+\end{align}
+$$
+However, we do not want to solve this coupled set of equations, and instead solve for $\mathbf{u}^n$ and $\mathbf{p}^{n-\frac{1}{2}}$ in a segergated fashion.
+We start by selecting a $p^\star$ such that $p^\star = p^{n+\frac{1}{2}} + \mathcal{O}(\delta t)$.
+A common choice is to use $p^\star= p^{n-\frac{1}{2}}$.
+
+We next solve the following problem
+
+$$
+\begin{align}
+\frac{\mathbf{u}^\star - \mathbf{u}^{n-1}}{\Delta t} - \frac{\nu}{2}\Delta \left(\mathbf{u}^* +\mathbf{u}^{n-1}\right) &= - \nabla p^\star + f^{n-\frac{1}{2}} && \text{ in } \Omega \\
+\mathbf{u}^* &= \mathbf{g}^n && \text{ on } \partial \Omega_D \\
+\frac{\nu}{2}\frac{\partial(\mathbf{u}^* + \mathbf{u}^{n-1})}{\partial n} - p^\star \mathbf{n} &= \mathbf{h}^{n-\frac{1}{2}} && \text{ on }\partial \Omega_N
+\end{align}
+$$
+
+We subtract the equation for $\mathbf{u^*}$ from the equation for $\mathbf{u}^n$ to obtain
+
+$$
+\begin{align}
+\frac{\mathbf{u}^n - \mathbf{u}^\star}{\Delta t} - \frac{\nu}{2}\Delta (\mathbf{u}^n - \mathbf{u}^\star) &= - \nabla (p^{n-\frac{1}{2}}- p^\star)&& \text{ in } \Omega
+\end{align}
+$$
+
+By taking the divergence of this equation we obtain
+
+$$
+\begin{align}
+\frac{1}{\Delta t} \nabla \cdot (\mathbf{u}^n - \mathbf{u}^\star)-\frac{\nu}{2} \nabla \cdot (\Delta u^n - \Delta u^{*})  &= - \nabla \cdot \nabla (p^{n-\frac{1}{2}}- p^\star)&& \text{ in } \Omega
+\end{align}
+$$
+
+We use the fact that $\nabla \cdot \mathbf{u}^n = 0$ and the identitiy  $\nabla \cdot \Delta \mathbf{T} = \nabla \cdot \nabla (\nabla \cdot \mathbf{T})- \nabla \cdot (\nabla \times(\nabla \times \mathbf{T}) ) = - \Delta (\nabla \cdot \mathbf{T})$ as $\nabla \cdot (\nabla \times L) = 0 \quad \forall L$ we can simplify our equation
+
+$$
+\begin{align}
+&-\frac{1}{\Delta t}\nabla \cdot \mathbf{u}^\star- \frac{\nu}{2} \Delta (\nabla \cdot \mathbf{u}^n - \nabla \cdot \mathbf{u}^\star) - = -\Delta (p^{n-\frac{1}{2}}-p^\star)\\
+&= -\frac{1}{\Delta t}\nabla \cdot \mathbf{u}^\star +\Delta \left(\frac{\nu}{2} \nabla \cdot \mathbf{u}^*\right)
+\end{align}
+$$
+
+which means that we can conclude with
+
+$$
+\Delta \left(p^{n-\frac{1}{2}}-p^*+\frac{\nu}{2}\nabla \cdot \mathbf{u}^*\right) = \frac{1}{\Delta t}\nabla \cdot \mathbf{u}^*
+$$
+
+Setting $\phi = p^{n-\frac{1}{2}} - p^* + \frac{\nu}{2}\nabla \cdot \mathbf{u}^\star$.
+We can solve this Poisson-type problem for $\phi$.
+We can then project the pressure $p^{n-\frac{1}{2}}=p^*+\phi-\frac{\nu}{2}\nabla \cdot \mathbf{u}^*$.
+
+To get an expression for $\mathbf{u}^n$ we use that $\mathbf{u}^n = \mathbf{u}^\star + D$ and that 
+
+$$
+\begin{align}
+\nabla \cdot \mathbf{u}^{n+1} &= 0\\ 
+&= \nabla \cdot \mathbf{u}^\star + \nabla \cdot D 
+\end{align}
+$$
+From the pressure correction equation we have that $\nabla \cdot \mathbf{u}^\star = \Delta t \Delta \phi= \Delta t \nabla \cdot \nabla \phi$. Thus by setting $D=-\Delta t \nabla \phi$ we have that $\mathbf{u}^{n+1}$ is divergence free.
+
+Concluding we solve the following equations
+### Tentative velocity 
+
+$$
+\begin{align}
+\frac{\mathbf{u}^\star - \mathbf{u}^{n-1}}{\Delta t} - \frac{\nu}{2}\Delta \left(\mathbf{u}^* +\mathbf{u}^{n-1}\right) &= - \nabla p^\star + f^{n-\frac{1}{2}} && \text{ in } \Omega \\
+\mathbf{u}^* &= \mathbf{g}^n && \text{ on } \partial \Omega_D \\
+\frac{\nu}{2}\frac{\partial(\mathbf{u}^* + \mathbf{u}^{n-1})}{\partial n} - p^\star \mathbf{n} &= \mathbf{h}^{n-\frac{1}{2}} && \text{ on }\partial \Omega_N
+\end{align}
+$$
+
+### Pressure correction
+
+$$
+\begin{align}
+\Delta \phi &= \frac{1}{\Delta t}\nabla \cdot \mathbf{u}^\star& \text{in }\Omega\\
+p^{n-\frac{1}{2}}&=p^*+\phi-\frac{\nu}{2}\nabla \cdot \mathbf{u}^*\\
+\end{align}
+$$
+
+### Velocity correction
+
+$$
+\mathbf{u}^n = \mathbf{u}^*- \Delta t \nabla \phi
+$$
+
+### Essential boundary conditions
+We note that we have not specified boundary conditons for the pressure correction.
+
+Assume that $\partial \Omega_N=\emptyset$, we then use that $u^*=\mathbf{g}^n$ on the whole boundary, and the flux condition of $\mathbf{g}$ over $\partial\Omega$.
+We integrate the pressure correction equation over $\Omega$ (using the divergence theorem)
+
+$$
+\begin{align}
+\int_\Omega \nabla \cdot \nabla \phi~\mathrm{dx} &= \int_{\partial\Omega} \frac{\partial \phi}{\partial n}~\mathrm{d}s\\
+&= \int_\Omega \frac{1}{\Delta t} \nabla \cdot \mathbf{u}^* = \frac{1}{\Delta t}\int_{\partial\Omega}\mathbf{u}^*\cdot \mathbf{n}~\mathrm{d}s = 
+\frac{1}{\Delta t}\int_{\partial\Omega}g^n\cdot \mathbf{n}~\mathrm{d}s = 0
+\end{align}
+$$
+Thus we use that $\frac{\partial \phi}{\partial n}=0$  on $\partial \Omega$.
+
+It has been discussed in many papers that one could use $\phi=0$ on $\partial\Omega_D$, see for instance  chapter 10 of {cite}`guermond2006`. In {cite}`guermond2005` it is shown that by using the rotational form of the equations (i.e. including the divergence term in $\phi$) yield reasonable error estimates.
+
+Also note that we have lost control of the tangential part of the corrected velocity, as we do not have that $\mathbf{u}^n\cdot \mathbf{t} = \mathbf{u}^\star \cdot \mathbf{t} - \Delta t \nabla \phi \cdot \mathbf{t}\neq\mathbf{g}^n$ as $\nabla \phi \cdot \mathbf{t}\neq 0$.
+
+
+## Navier-Stokes equation
 We split these coupled equations into a set of simpler equations by using a fractional step method, described in for instance {cite}`simo-1994`. We arrive at the following scheme
 
 $$
