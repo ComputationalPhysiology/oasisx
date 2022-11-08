@@ -48,13 +48,13 @@ jobs:
       - name: Copy Dockerfile into gh-pages
         run: cp Dockerfile ${PUBLISH_DIR}/
 
-    if: github.ref == 'refs/heads/main'
       - name: Upload to Github Pages
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v1
         with:
           path: ${{ env.PUBLISH_DIR }}
-    else:
       - name: Upload artifact
+        if: github.ref != 'refs/heads/main'
         uses: actions/upload-artifact@v3
         with:
           name: Documetnation
