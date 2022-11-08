@@ -32,7 +32,7 @@ $$
 
 where $u_k^n$ is the $k$th component of the velocity vector at time $t^n$ $\phi = p^{n-\frac{1}{2}}-p^\star$ is a pressure correction, $p^\star$ the tentative pressure.
 
-Using $\phi=0$ on $\partial\Omega_n$ can cause locking {cite}:`poux2011` and $p^{n+\frac{1}{2}}\vert_{\partial\Omega_N}=p^*\vert_{\partial\Omega_N}$.
+Using $\phi=0$ on $\partial\Omega_n$ can cause locking {cite}`poux2011` ,{cite}`guermond2006` (Chapter 10.4), i.e. $p^{n+\frac{1}{2}}\vert_{\partial\Omega_N}=p^*\vert_{\partial\Omega_N}$.
 
 The first equation is solved for the tentative velocity $u_k^I$, where $\tilde u_k=\frac{1}{2}(u_k^I+u_k^{n-1})$, and the convective term $B_k^{n-\frac{1}{2}}=\mathbf{\bar{u}}\cdot \nabla \tilde u_k = (1.5 \mathbf{u}^{n-1}-0.5\mathbf{u}^{n-2})\cdot \nabla \tilde u_k$ is the implicit Adams-Bashforth discretization.
 
