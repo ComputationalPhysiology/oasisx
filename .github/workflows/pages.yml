@@ -48,10 +48,18 @@ jobs:
       - name: Copy Dockerfile into gh-pages
         run: cp Dockerfile ${PUBLISH_DIR}/
 
-      - name: Upload artifact
+    if: github.ref == 'refs/heads/main'
+      - name: Upload to Github Pages
         uses: actions/upload-pages-artifact@v1
         with:
           path: ${{ env.PUBLISH_DIR }}
+    else:
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Documetnation
+          path: ${{ env.PUBLISH_DIR }}
+          if-no-files-found: error
 
   # Single deploy job since we're just deploying
   deploy:
