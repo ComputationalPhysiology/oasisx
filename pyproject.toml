@@ -29,7 +29,8 @@ test = [
 
 docs = [
     "jupyter-book", # Required to build documentation
-    "jupytext", # Required to convert .py to .ipynb files
+    "jupytext", # Required to convert .py to .ipynb files,
+    "seaborn", # For plotting in demos
 ]
 
 binder = [ # Required to interface with Binder when having a Dockerfile in root

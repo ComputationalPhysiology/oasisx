@@ -32,7 +32,7 @@ $$
 
 where $u_k^n$ is the $k$th component of the velocity vector at time $t^n$ $\phi = p^{n-\frac{1}{2}}-p^\star$ is a pressure correction, $p^\star$ the tentative pressure.
 
-A consequence of this is that $p^{n+\frac{1}{2}}\vert_{\partial\Omega_N}=p^*\vert_{\partial\Omega_N}$.
+Using $\phi=0$ on $\partial\Omega_n$ can cause locking {cite}:`poux2011` and $p^{n+\frac{1}{2}}\vert_{\partial\Omega_N}=p^*\vert_{\partial\Omega_N}$.
 
 The first equation is solved for the tentative velocity $u_k^I$, where $\tilde u_k=\frac{1}{2}(u_k^I+u_k^{n-1})$, and the convective term $B_k^{n-\frac{1}{2}}=\mathbf{\bar{u}}\cdot \nabla \tilde u_k = (1.5 \mathbf{u}^{n-1}-0.5\mathbf{u}^{n-2})\cdot \nabla \tilde u_k$ is the implicit Adams-Bashforth discretization.
 
@@ -78,6 +78,7 @@ A difference between Oasis and the current implementation is that we implement t
 In Oasis, the choice of not including this term ment that one would have to re-assemble 
 $\int_\Omega \nabla_k p^*v~\mathrm{d}x$ in every inner iteration.
 In the current implementation, we have that $\int_\Omega p^*\nabla_k v~\mathrm{d}x + \int_{\partial\Omega_N}h^{n-\frac{1}{2}}v~\mathrm{d}s$ has to be reassembled. As the boundary integral $\partial\Omega_N$ usually is small compared to the volume of the computational domain, this is a minimal increase in assembly time.
+
 
 ### Matrix-vector product
 An algorithm for computing the matrix vector product follows
