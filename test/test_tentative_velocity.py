@@ -124,7 +124,7 @@ def test_tentative(low_memory, body_force):
     bc_inlet_x = DirichletBC(inlet.eval, LocatorMethod.TOPOLOGICAL, (facet_tags, left_value))
     bc_inlet_y = DirichletBC(0., LocatorMethod.TOPOLOGICAL, (facet_tags, left_value))
     bcs_u = [[bc_inlet_x, bc_tb], [bc_inlet_y, bc_tb]]
-    bcs_p = [DirichletBC(0., LocatorMethod.TOPOLOGICAL, (facet_tags, right_value))]
+    bcs_p = []  # [DirichletBC(0., LocatorMethod.TOPOLOGICAL, (facet_tags, right_value))]
 
     # Create fractional step solver
     solver = FractionalStep_AB_CN(
@@ -188,7 +188,7 @@ def test_tentative(low_memory, body_force):
     converged_u = solver.velocity_tentative_solve()
     for i in range(mesh.geometry.dim):
         assert converged_u[1][i]
-        assert np.allclose(solver._b_u[i].vector.array, bs[i].array)
+        assert np.allclose(solver._rhs1[i].vector.array, bs[i].array)
 
     solver.pressure_assemble(dt)
     converged_p = solver.pressure_solve()
