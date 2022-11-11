@@ -499,8 +499,8 @@ class FractionalStep_AB_CN():
                 # Compute M u^{n-1}
                 self._M.mult(self._u[i].vector, self._b3.vector)
                 self._wrk_comp.x.set(0)
-                # Compute
-                self._c_M[i].mult(self._dp.vector, self._wrk_comp.vector)
+                # Compute dphi/dx_i vi dx
+                self._grad_p_Mat[i].mult(self._dp.vector, self._wrk_comp.vector)
                 self._b3.vector.axpy(-1, self._wrk_comp.vector)
                 errors[i] = self._solver_c.solve(self._b3.vector, self._u[i])
 
