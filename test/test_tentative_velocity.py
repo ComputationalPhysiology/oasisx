@@ -125,7 +125,8 @@ def test_tentative(low_memory, body_force):
     bc_inlet_x = DirichletBC(inlet.eval, LocatorMethod.TOPOLOGICAL, (facet_tags, left_value))
     bc_inlet_y = DirichletBC(0., LocatorMethod.TOPOLOGICAL, (facet_tags, left_value))
     bcs_u = [[bc_inlet_x, bc_tb], [bc_inlet_y, bc_tb]]
-    bcs_p = [PressureBC(0., (facet_tags, right_value))]
+    p_value = 4.
+    bcs_p = [PressureBC(p_value, (facet_tags, right_value))]
 
     # Create fractional step solver
     solver = FractionalStep_AB_CN(
@@ -167,6 +168,9 @@ def test_tentative(low_memory, body_force):
          dolfinx.fem.dirichletbc(0., dolfinx.fem.locate_dofs_topological(V, dim, tb_facets), V)],
         [dolfinx.fem.dirichletbc(0., dolfinx.fem.locate_dofs_topological(V, dim, left_facets), V),
          dolfinx.fem.dirichletbc(0., dolfinx.fem.locate_dofs_topological(V, dim, tb_facets), V)]]
+    n = ufl.FacetNormal(mesh)
+    v = ufl.TestFunction(V)
+    ds = ufl.Measure("ds", domain=mesh, subdomain_data=facet_tags, subdomain_id=right_value)
     A = dolfinx.fem.petsc.assemble_matrix(dolfinx.fem.form(a))
     A.assemble()
     for bc in bcs_u[0]:
@@ -174,6 +178,7 @@ def test_tentative(low_memory, body_force):
     bs = []
     for i in range(mesh.geometry.dim):
         b = dolfinx.fem.petsc.assemble_vector(dolfinx.fem.form(Ls[i]))
+        dolfinx.fem.petsc.assemble_vector(b, dolfinx.fem.form(p_value*v.dx(i)*n[i]*ds))
         b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
         dolfinx.fem.petsc.set_bc(b, bcs_u[i])
         b.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
