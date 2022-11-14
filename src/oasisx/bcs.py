@@ -5,7 +5,7 @@
 
 
 from enum import Enum
-from typing import Callable, Optional, Tuple, Union
+from typing import Callable, Optional, Tuple, Union, List
 
 import dolfinx.fem as _fem
 import dolfinx.mesh as _dmesh
@@ -13,7 +13,7 @@ import numpy as np
 import numpy.typing as npt
 from petsc4py import PETSc as _PETSc
 import ufl
-__all__ = ["DirichletBC", "PressureBC" "LocatorMethod"]
+__all__ = ["DirichletBC", "PressureBC", "LocatorMethod"]
 
 
 class LocatorMethod(Enum):
@@ -134,7 +134,8 @@ class DirichletBC():
 class PressureBC():
 
     """
-    Create a Pressure boundary condition (natural bc) based on a set of facets of a mesh and some value.
+    Create a Pressure boundary condition (natural bc) based on a set of facets of a
+    mesh and some value.
 
     Args:
         value: The value the degrees of freedom should have. It can be a float, a
@@ -179,11 +180,11 @@ class PressureBC():
         """
 
     _subdomain_data: _dmesh.MeshTagsMetaClass
-    _subdomain_id: Union[int, Tuple[np.int32]]
+    _subdomain_id: Union[np.int32, Tuple[np.int32]]
     _value: Union[np.float64, _fem.Constant,
                   Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]
     _u: _fem.Function
-    _rhs: ufl.form.Form
+    _rhs: List[ufl.form.Form]
     _bc: _fem.DirichletBCMetaClass
     __slots__ = tuple(__annotations__)
 
@@ -193,7 +194,7 @@ class PressureBC():
         self._subdomain_data, self._subdomain_id = marker
         self._value = value
 
-    def create_boundary_conditions(self, V: _fem.FunctionSpace, Q: _fem.FunctionSpace):
+    def create_bcs(self, V: _fem.FunctionSpace, Q: _fem.FunctionSpace):
         """
         Create boundary conditions for the pressure conditions for a given velocity and
         pressure function space
@@ -202,26 +203,27 @@ class PressureBC():
             V: The velocity function space
             Q: The pressure function space
         """
-        mesh = self._subdomain_data.mesh
+        mesh = self._subdomain_data.mesh  # type: ignore
         # Create pressure "Neumann" condition
         v = ufl.TestFunction(V)
         ds = ufl.Measure("ds", domain=mesh, subdomain_data=self._subdomain_data,
                          subdomain_id=self._subdomain_id)
+        n = ufl.FacetNormal(mesh)
         try:
-            rhs = self._value * v * ds
+            rhs = [self._value * n_i * v.dx(i) * ds for i, n_i in enumerate(n)]
         except TypeError:
             # If input is lambda function interpolate into local function
             self._u = _fem.Function(Q)
-            self._u.interpolate(self._value)
-            rhs = self._u * v * ds
+            self._u.interpolate(self._value)  # type: ignore
+            rhs = [self._u * n_i * v.dx(i) * ds for i, n_i in enumerate(n)]
 
         # Create rhs contribution from natural boundary condition
         self._rhs = rhs
 
         # Create homogenuous boundary condition for pressure correction eq
-        boundary_facets = self._subdomain_data.find(self._subdomain_id)
-        dofs = _fem.locate_dofs_topological(V, mesh.topology.dim-1, boundary_facets)
-        self._bc = _fem.dirichletbc(_PETSc.ScalarType(0.), dofs, V)
+        boundary_facets = self._subdomain_data.find(self._subdomain_id)  # type: ignore
+        dofs = _fem.locate_dofs_topological(Q, mesh.topology.dim-1, boundary_facets)
+        self._bc = _fem.dirichletbc(_PETSc.ScalarType(0.), dofs, Q)
 
     def update_bc(self):
         """
@@ -229,3 +231,11 @@ class PressureBC():
         """
         if hasattr(self, "_u"):
             self._u.interpolate(self._value)
+
+    @property
+    def bc(self) -> _fem.DirichletBCMetaClass:
+        return self._bc
+
+    def rhs(self, i: int) -> _fem.FormMetaClass:
+        assert i < len(self._rhs)
+        return self._rhs[i]

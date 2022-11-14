@@ -3,7 +3,7 @@
 # This file is part of Oasisx
 # SPDX-License-Identifier:    MIT
 
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
 
 import dolfinx
 import numpy as np
@@ -12,9 +12,9 @@ import pytest
 import scipy.sparse
 import ufl
 from mpi4py import MPI
-from oasisx import DirichletBC, FractionalStep_AB_CN, LocatorMethod
-
 from petsc4py import PETSc
+
+from oasisx import DirichletBC, FractionalStep_AB_CN, LocatorMethod, PressureBC
 
 
 def gather_PETScMatrix(A: PETSc.Mat, comm: MPI.Comm, root=0) -> scipy.sparse.csr_matrix:
@@ -40,6 +40,7 @@ def create_tentative_forms(mesh: dolfinx.mesh.Mesh,
                            el_p: Tuple[str, int], dt: float, nu: float,
                            f: Optional[npt.NDArray[np.float64]]) -> Tuple[ufl.Form, List[ufl.Form],
                                                                           dolfinx.fem.Function,
+                                                                          dolfinx.fem.Function,
                                                                           dolfinx.fem.Function]:
     """
     Direct implementation of the i-th component of the tentative velocity equation
@@ -64,11 +65,11 @@ def create_tentative_forms(mesh: dolfinx.mesh.Mesh,
     Ls = []
     for i in range(mesh.geometry.dim):
         if f is None:
-            Ls.append(L - p.dx(i)*v*dx)
+            Ls.append(L + p*v.dx(i)*dx)
         else:
-            Ls.append(L - p.dx(i)*v*dx + f[i]*v*dx)
+            Ls.append(L + p*v.dx(i)*dx + f[i]*v*dx)
 
-    return a, Ls, u_n, u_n2
+    return a, Ls, u_n, u_n2, p
 
 
 @pytest.mark.parametrize("body_force", [True, False])
@@ -76,7 +77,7 @@ def create_tentative_forms(mesh: dolfinx.mesh.Mesh,
 def test_tentative(low_memory, body_force):
     mesh = dolfinx.mesh.create_unit_square(MPI.COMM_WORLD, 10, 10)
     dim = mesh.topology.dim - 1
-    el_u = ("CG", 1)
+    el_u = ("Lagrange", 1)
     el_p = ("Lagrange", 1)
 
     solver_options = {"tentative": {"ksp_type": "preonly", "pc_type": "lu"}}
@@ -124,7 +125,7 @@ def test_tentative(low_memory, body_force):
     bc_inlet_x = DirichletBC(inlet.eval, LocatorMethod.TOPOLOGICAL, (facet_tags, left_value))
     bc_inlet_y = DirichletBC(0., LocatorMethod.TOPOLOGICAL, (facet_tags, left_value))
     bcs_u = [[bc_inlet_x, bc_tb], [bc_inlet_y, bc_tb]]
-    bcs_p = []  # [DirichletBC(0., LocatorMethod.TOPOLOGICAL, (facet_tags, right_value))]
+    bcs_p = [PressureBC(0., (facet_tags, right_value))]
 
     # Create fractional step solver
     solver = FractionalStep_AB_CN(
@@ -143,13 +144,16 @@ def test_tentative(low_memory, body_force):
     solver._u1[1].interpolate(inlet.eval)
     inlet.t = dt
     bc_inlet_x.update_bc()
+    solver._ps.interpolate(lambda x: x[1])
 
     solver.tenative_velocity(dt, nu)
     A_oasis = solver._A
 
     # Reference implementation
-    a, Ls, u_n, u_n2 = create_tentative_forms(mesh, el_u, el_p, dt, nu, f)
+    a, Ls, u_n, u_n2, p = create_tentative_forms(mesh, el_u, el_p, dt, nu, f)
     V = u_n.function_space
+    # Create bcs and boundary conditions
+    p.interpolate(lambda x: x[1])
     ux = dolfinx.fem.Function(V)
     ux.interpolate(inlet.eval)
     inlet.t = -2*dt

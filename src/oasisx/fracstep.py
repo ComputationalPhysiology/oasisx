@@ -14,7 +14,7 @@ from dolfinx import la as _la
 from dolfinx import mesh as _dmesh
 from petsc4py import PETSc as _PETSc
 
-from .bcs import DirichletBC
+from .bcs import DirichletBC, PressureBC
 from .ksp import KSPSolver
 
 __all__ = ["FractionalStep_AB_CN"]
@@ -63,8 +63,7 @@ class FractionalStep_AB_CN():
 
     # Boundary conditions
     _bcs_u: List[List[DirichletBC]]
-    # FIXME: To be implemented as something else than a DirichletBC as it should be part of tentative velocity step
-    _bcs_p: List[DirichletBC]
+    _bcs_p: List[PressureBC]
 
     # -----------------------Tentative velocity step----------------------------
 
@@ -95,6 +94,7 @@ class FractionalStep_AB_CN():
     _b0: List[_fem.Function]
     _body_force: List[_fem.FormMetaClass]
     _b_first: List[_fem.Function]  # RHS consisting of all variables from previous time step
+    _p_surf: List[_fem.FormMetaClass]  # Surface terms for pressure at outlets at t-1/2
 
     # Working arrays
     _wrk_vel: List[_fem.Function]  # Working arrays for velocity space
@@ -130,7 +130,7 @@ class FractionalStep_AB_CN():
 
     def __init__(self, mesh: _dmesh.Mesh, u_element: Tuple[str, int],
                  p_element: Tuple[str, int], bcs_u: List[List[DirichletBC]],
-                 bcs_p: List[DirichletBC],
+                 bcs_p: List[PressureBC],
                  solver_options: dict = None, jit_options: dict = None,
                  body_force: Optional[ufl.core.expr.Expr] = None,
                  options: dict = None):
@@ -172,11 +172,13 @@ class FractionalStep_AB_CN():
         self._b2 = _fem.Function(self._Q)
 
         # Create boundary conditions for pressure space
-        if len(bcs_p) > 0:
-            raise NotImplementedError("Need to implement handling of pressure boundary conditions")
-        self._bcs_p = []  # bcs_p
-        # for bc in self._bcs_p:
-        #    bc.create_bc(self._Q)
+        forms: List[List[ufl.form.Form]] = [[] for _ in range(self._mesh.geometry.dim)]
+        self._bcs_p = bcs_p
+        for bcp in self._bcs_p:
+            bcp.create_bcs(self._Vi[0][0], self._Q)
+            for i in range(self._mesh.geometry.dim):
+                forms[i].append(bcp.rhs(i))
+        self._p_surf = [_fem.form(sum(form)) for form in forms]
 
         # Create solvers for each step
         solver_options = {} if solver_options is None else solver_options
@@ -331,6 +333,7 @@ class FractionalStep_AB_CN():
 
             b_k=\\left(\\frac{1}{\\delta t}M  + \\frac{1}{2} C +\\frac{1}{2}\\nu K\\right)u_k^{n-1}
             + \\int_{\\Omega} f_k^{n-\\frac{1}{2}}v_k~\\mathrm{d}x
+            + \\int h^{n-\\frac{1}{2}} n_k \\nabla_k v~\\mathrm{dx}
 
         Args:
             dt: The time step
@@ -350,6 +353,10 @@ class FractionalStep_AB_CN():
         # Add diffusion
         self._A.axpy(-0.5*nu, self._K, _PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
 
+        # Update Pressure BC
+        for bc in self._bcs_p:
+            bc.update_bc()
+
         # Compute rhs for all velocity components
         for i, ui in enumerate(self._u):
 
@@ -362,12 +369,19 @@ class FractionalStep_AB_CN():
 
             self._b_first[i].x.array[:] += self._wrk_comp.x.array[:]
 
+            # Add pressure contribution
+            if self._p_surf[i].rank == 1:  # type: ignore
+                self._wrk_comp.x.set(0)
+                _fem.petsc.assemble_vector(self._wrk_comp.vector, self._p_surf[i])
+                self._wrk_comp.x.scatter_reverse(_la.ScatterMode.add)
+                self._b_first[i].x.array[:] += self._wrk_comp.x.array[:]
+
         # Reset matrix for lhs
         self._A.scale(-1)
         self._A.axpy(2./dt, self._M,  _PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
         # NOTE: This would not work if we have different DirichletBCs on different components
-        for bc in self._bcs_u[0]:
-            self._A.zeroRowsLocal(bc._bc.dof_indices()[0], 1.)  # type: ignore
+        for bcu in self._bcs_u[0]:
+            self._A.zeroRowsLocal(bcu._bc.dof_indices()[0], 1.)  # type: ignore
 
     def velocity_tentative_assemble(self):
         """
@@ -375,8 +389,8 @@ class FractionalStep_AB_CN():
 
         .. math::
 
-            b_k \\mathrel{+}= b(u_k^{n-1}) - \\int_{\\Omega}
-             p^*\\frac{\\partialv_k}{\\partial x_k}~\\mathrm{d}x.
+            b_k \\mathrel{+}= b(u_k^{n-1}) + \\int_{\\Omega}
+             p^*\\frac{\\partial v_k}{\\partial x_k}~\\mathrm{d}x.
 
         :math:`b(u_k^{n-1})` is computed in :py:obj:`FractionalStep_AB_CN.assemble_first`.
         """
@@ -397,7 +411,7 @@ class FractionalStep_AB_CN():
 
         # Update RHS
         for i in range(self._mesh.geometry.dim):
-            self._rhs1[i].x.array[:] = self._b_first[i].x.array - self._p_vdxi_Vec[i].x.array
+            self._rhs1[i].x.array[:] = self._b_first[i].x.array + self._p_vdxi_Vec[i].x.array
 
     def velocity_tentative_solve(self) -> Tuple[float, npt.NDArray[np.int32]]:
         """
@@ -462,10 +476,10 @@ class FractionalStep_AB_CN():
                 self._divu_Mat[i].mult(self._u[i].vector, self._wrk_p.vector)
                 self._b2.vector.axpy(-1/dt, self._wrk_p.vector)
         # Apply boundary conditions to the rhs
-        bc_p = [bc._bc for bc in self._bcs_p]
         self._b2.x.scatter_reverse(_la.ScatterMode.add)
 
         # Set homogenuous Dirichlet boundary condition on pressure correction
+        bc_p = [bc._bc for bc in self._bcs_p]
         _fem.petsc.set_bc(self._b2.vector, bc_p)
         self._b2.x.scatter_forward()
 
