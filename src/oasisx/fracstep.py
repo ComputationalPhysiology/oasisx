@@ -124,6 +124,7 @@ class FractionalStep_AB_CN():
     _grad_p_Mat: List[_PETSc.Mat]
     _grad_p_Vec: List[_PETSc.Vec]  # Low memory version
     _b3: _fem.Function
+    _M_bcs: _PETSc.Mat  # Mass matrix with bcs applied
 
     # Annotate all functions
     __slots__ = tuple(__annotations__)
@@ -178,7 +179,9 @@ class FractionalStep_AB_CN():
             bcp.create_bcs(self._Vi[0][0], self._Q)
             for i in range(self._mesh.geometry.dim):
                 forms[i].append(bcp.rhs(i))
-        self._p_surf = [_fem.form(sum(form)) for form in forms]
+
+        if len(self._bcs_p) > 0:
+            self._p_surf = [_fem.form(sum(form)) for form in forms]
 
         # Create solvers for each step
         solver_options = {} if solver_options is None else solver_options
@@ -202,7 +205,9 @@ class FractionalStep_AB_CN():
         # Set solver operator
         self._solver_p.setOperators(self._Ap)
         self._solver_p.setOptions(self._Ap)
-        self._solver_c.setOperators(self._Ap)
+        self._solver_c.setOperators(self._M)
+        self._solver_u.setOperators(self._A)
+        self._solver_u.setOptions(self._A)
 
     def _compile_and_allocate_forms(self, body_force: ufl.core.expr.Expr,
                                     jit_options: dict):
@@ -319,6 +324,11 @@ class FractionalStep_AB_CN():
                 _fem.petsc.assemble_matrix(self._divu_Mat[i], self._p_rhs[i])
                 self._divu_Mat[i].assemble()
 
+        # Create mass matrix with symmetrically applied bcs
+        self._M_bcs = self._M.copy()
+        for bcu in self._bcs_u[0]:
+            self._M_bcs.zeroRowsColumnsLocal(bcu._bc.dof_indices()[0], 1.)  # type: ignore
+
     def assemble_first(self, dt: float, nu: float):
         """
         Assembly routine for first iteration of pressure/velocity system.
@@ -370,7 +380,7 @@ class FractionalStep_AB_CN():
             self._b_first[i].x.array[:] += self._wrk_comp.x.array[:]
 
             # Add pressure contribution
-            if self._p_surf[i].rank == 1:  # type: ignore
+            if hasattr(self, "_p_surf") and self._p_surf[i].rank == 1:  # type: ignore
                 self._wrk_comp.x.set(0)
                 _fem.petsc.assemble_vector(self._wrk_comp.vector, self._p_surf[i])
                 self._wrk_comp.x.scatter_reverse(_la.ScatterMode.add)
@@ -419,45 +429,20 @@ class FractionalStep_AB_CN():
 
         Returns the difference between the two solutions and the solver error codes
         """
-        self._solver_u.setOperators(self._A)
-        self._solver_u.setOptions(self._A)
         diff = 0
         errors = np.zeros(self._mesh.geometry.dim, dtype=np.int32)
         for i in range(self._mesh.geometry.dim):
             for bc in self._bcs_u[i]:
                 bc.apply(self._rhs1[i].vector)
+
             # Use temporary storage, as it is only used in `assemble_first`
             self._u[i].vector.copy(result=self._wrk_comp.vector)
             errors[i] = self._solver_u.solve(self._rhs1[i].vector, self._u[i])
-
+            print(self._u[i].x.array[self._bcs_u[0][0]._bc.dof_indices()[0]])
             # Compute difference from last inner iter
             self._wrk_comp.vector.axpy(-1, self._u[i].vector)
             diff += self._wrk_comp.vector.norm(_PETSc.NormType.NORM_2)
         return diff, errors
-
-    def tenative_velocity(self, dt: float, nu: float, max_error: float = 1e-12,
-                          max_iter: int = 10) -> float:
-        """
-        Propagate the tenative velocity by one step
-
-        Args:
-            dt: The time step
-            nu: The kinematic velocity
-            max_error: The maximal difference for inner iterations of solving `u`
-            max_iter: Maximal number of inner iterations for `u`
-        Returns:
-            The difference between the two last inner iterations
-
-        """
-        inner_it = 0
-        diff = 1e8
-        self.assemble_first(dt, nu)
-        while inner_it < max_iter and diff > max_error:
-            inner_it += 1
-            self.velocity_tentative_assemble()
-            diff, errors = self.velocity_tentative_solve()
-            assert (errors > 0).all()
-        return diff
 
     def pressure_assemble(self, dt: float):
         """
@@ -474,9 +459,11 @@ class FractionalStep_AB_CN():
         else:
             for i in range(self._mesh.geometry.dim):
                 self._divu_Mat[i].mult(self._u[i].vector, self._wrk_p.vector)
-                self._b2.vector.axpy(-1/dt, self._wrk_p.vector)
+                self._b2.vector.axpy(1, self._wrk_p.vector)
+
         # Apply boundary conditions to the rhs
         self._b2.x.scatter_reverse(_la.ScatterMode.add)
+        self._b2.vector.scale(-1/dt)
 
         # Set homogenuous Dirichlet boundary condition on pressure correction
         bc_p = [bc._bc for bc in self._bcs_p]
@@ -493,6 +480,7 @@ class FractionalStep_AB_CN():
             nullspace = self._Ap.getNullSpace()
             nullspace.remove(self._b2.vector)
         converged = self._solver_p.solve(self._b2.vector, self._dp)
+        self._ps.x.array[:] = self._p.x.array[:] + self._dp.x.array
         return converged
 
     def velocity_update(self, dt) -> npt.NDArray[np.int32]:
@@ -502,23 +490,91 @@ class FractionalStep_AB_CN():
         errors = np.zeros(self._mesh.geometry.dim, dtype=np.int32)
         if self._low_memory:
             for i in range(self._mesh.geometry.dim):
+                # Compute M u^{n-1}
                 self._M.mult(self._u[i].vector, self._b3.vector)
+
                 self._wrk_comp.x.set(0)
                 _fem.petsc.assemble_vector(self._wrk_comp.vector, self._grad_p[i])
                 self._wrk_comp.x.scatter_reverse(_la.ScatterMode.add)
+
+                # Subtract
                 self._b3.vector.axpy(-dt, self._wrk_comp.vector)
+
+                # Set bcs
+                # bcs_u = [bcu._bc for bcu in self._bcs_u[i]]
+                # self._wrk_comp.x.set(0)
+                # _fem.petsc.apply_lifting(self._wrk_comp.vector, [self._mass_Vi], [bcs_u])
+                # self._wrk_comp.x.scatter_reverse(_la.ScatterMode.add)
+
+                # self._b3.vector.axpy(1, self._wrk_comp.vector)
+                # _fem.petsc.set_bc(self._b3.vector, bcs_u)
+                self._b3.x.scatter_forward()
+
                 errors[i] = self._solver_c.solve(self._b3.vector, self._u[i])
         else:
             for i in range(self._mesh.geometry.dim):
                 # Compute M u^{n-1}
                 self._M.mult(self._u[i].vector, self._b3.vector)
-                self._wrk_comp.x.set(0)
+
                 # Compute dphi/dx_i vi dx
+                self._wrk_comp.x.set(0)
                 self._grad_p_Mat[i].mult(self._dp.vector, self._wrk_comp.vector)
-                self._b3.vector.axpy(-1, self._wrk_comp.vector)
+
+                # Subtract
+                self._b3.vector.axpy(-dt, self._wrk_comp.vector)
+
+                # Set bcs
+                # bcs_u = [bcu._bc for bcu in self._bcs_u[i]]
+                # self._wrk_comp.x.set(0)
+                # _fem.petsc.apply_lifting(self._wrk_comp.vector, [self._mass_Vi], [bcs_u])
+                # self._wrk_comp.x.scatter_reverse(_la.ScatterMode.add)
+
+                # self._b3.vector.axpy(1, self._wrk_comp.vector)
+                # _fem.petsc.set_bc(self._b3.vector, bcs_u)
+                self._b3.x.scatter_forward()
                 errors[i] = self._solver_c.solve(self._b3.vector, self._u[i])
 
         return errors
+
+    def solve(self, dt: float, nu: float, max_error: float = 1e-12,
+              max_iter: int = 10, step: int = 0):
+        """
+        Propagate splitting scheme one time step
+
+        Args:
+            dt: The time step
+            nu: The kinematic velocity
+            max_error: The maximal difference for inner iterations of solving `u`
+            max_iter: Maximal number of inner iterations for `u`
+
+        """
+        inner_it = 0
+        diff = 1e8
+        self._ps.x.array[:] = self._p.x.array[:]
+        # FIXME: DEBUG THIS TOMORROW
+        [[bc.update_bc() for bc in bcu] for bcu in self._bcs_u]
+        self.assemble_first(dt, nu)
+        while inner_it < max_iter and diff > max_error:
+            inner_it += 1
+            self.velocity_tentative_assemble()
+            diff, errors = self.velocity_tentative_solve()
+            if step == 0:
+                return diff
+            assert (errors > 0).all()
+            self.pressure_assemble(dt)
+            error_p = self.pressure_solve()
+            assert error_p > 0
+            print(inner_it, diff)
+        #assert inner_it != max_iter
+        self.velocity_update(dt)
+
+        # Propagate solutions u1->u2, u->u1
+        for i in range(self._mesh.geometry.dim):
+            self._u2[i].x.array[:] = self._u1[i].x.array
+            self._u1[i].x.array[:] = self._u[i].x.array
+
+        self._p.x.array[:] = self._ps.x.array[:]
+        return diff
 
     @property
     def u(self):

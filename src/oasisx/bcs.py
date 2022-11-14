@@ -121,7 +121,7 @@ class DirichletBC():
         """
         Update the underlying function if input value is a lambda function
         """
-        if self._u is not None:
+        if hasattr(self, "_u"):
             self._u.interpolate(self._value)
 
     def apply(self, x: _PETSc.Vec):
