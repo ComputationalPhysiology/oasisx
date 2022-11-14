@@ -188,7 +188,7 @@ $$
 \begin{align}
     \frac{1}{\Delta t}\int_\Omega (u^I_k-u_k^{n-1}) v~\mathrm{d}x +& \int_\Omega \mathbf{\bar u} \cdot \frac{1}{2}\nabla (u_k^I + u_k^{n-1}) v ~\mathrm{d}x\\
     &+ \frac{\nu}{2}\int_\Omega \nabla (u_k^I + u_k^{n-1})\cdot \nabla v ~\mathrm{d}x \\
-    &= \int_\Omega p^\star \nabla_k v + f_k^{n-\frac{1}{2}}v ~\mathrm{dx} + \int_{\partial\Omega_N}h^{n-\frac{1}{2}}n_kv~\mathrm{d}s.
+    &= -\int_\Omega p^\star \nabla_k v + f_k^{n-\frac{1}{2}}v ~\mathrm{dx} + \int_{\partial\Omega_N}h^{n-\frac{1}{2}}n_k \nabla_k v ~\mathrm{d}s.
 \end{align}
 $$
 
