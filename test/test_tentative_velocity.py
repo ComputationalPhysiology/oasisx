@@ -146,8 +146,9 @@ def test_tentative(low_memory, body_force):
     inlet.t = dt
     bc_inlet_x.update_bc()
     solver._ps.interpolate(lambda x: x[1])
-
-    solver.tenative_velocity(dt, nu)
+    solver.assemble_first(dt, nu)
+    solver.velocity_tentative_assemble()
+    solver.velocity_tentative_solve()
     A_oasis = solver._A
 
     # Reference implementation
