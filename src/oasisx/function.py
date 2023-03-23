@@ -57,15 +57,15 @@ class Projector():
         u = ufl.TrialFunction(space)
         v = ufl.TestFunction(space)
         a = ufl.inner(u, v) * ufl.dx(metadata=metadata)
-        self._lhs = dolfinx.fem.form(a, jit_params=jit_options,
-                                     form_compiler_params=form_compiler_options)
+        self._lhs = dolfinx.fem.form(a, jit_options=jit_options,
+                                     form_compiler_options=form_compiler_options)
         self._A = dolfinx.fem.petsc.assemble_matrix(self._lhs, bcs=bcs)
         self._A.assemble()
 
         # Compile RHS form and create vector
         L = ufl.inner(function, v) * ufl.dx(metadata=metadata)
-        self._rhs = dolfinx.fem.form(L, jit_params=jit_options,
-                                     form_compiler_params=form_compiler_options)
+        self._rhs = dolfinx.fem.form(L, jit_options=jit_options,
+                                     form_compiler_options=form_compiler_options)
         self._x = dolfinx.fem.Function(space)
         self._b = dolfinx.fem.Function(space)
         self._bcs = bcs

@@ -16,6 +16,7 @@ from petsc4py import PETSc as _PETSc
 
 from .bcs import DirichletBC, PressureBC
 from .ksp import KSPSolver
+import warnings
 
 __all__ = ["FractionalStep_AB_CN"]
 
@@ -185,9 +186,12 @@ class FractionalStep_AB_CN():
 
         # Create solvers for each step
         solver_options = {} if solver_options is None else solver_options
-        self._solver_u = KSPSolver(mesh.comm, solver_options.get("tentative"))
-        self._solver_p = KSPSolver(mesh.comm, solver_options.get("pressure"))
-        self._solver_c = KSPSolver(mesh.comm, solver_options.get("scalar"))
+        self._solver_u = KSPSolver(mesh.comm, solver_options.get("tentative"),
+                                   prefix="tentative_velocity")
+        self._solver_p = KSPSolver(mesh.comm, solver_options.get("pressure"),
+                                   prefix="pressure_correction")
+        self._solver_c = KSPSolver(mesh.comm, solver_options.get("scalar"),
+                                   prefix="velcoity_update")
 
         if options is None:
             options = {}
@@ -222,26 +226,26 @@ class FractionalStep_AB_CN():
                 force = _fem.Constant(self._mesh, force)
             except RuntimeError:
                 pass
-            self._body_force.append(_fem.form(force*v*dx, jit_params=jit_options))
+            self._body_force.append(_fem.form(force*v*dx, jit_options=jit_options))
 
         # Mass matrix for velocity component
-        self._mass_Vi = _fem.form(u*v*dx, jit_params=jit_options)
+        self._mass_Vi = _fem.form(u*v*dx, jit_options=jit_options)
         self._M = _fem.petsc.create_matrix(self._mass_Vi)
         self._A = _fem.petsc.create_matrix(self._mass_Vi)
 
         # Stiffness matrix for velocity component
         self._stiffness_Vi = _fem.form(ufl.inner(ufl.grad(u), ufl.grad(v))*dx,
-                                       jit_params=jit_options)
+                                       jit_options=jit_options)
         self._K = _fem.petsc.create_matrix(self._stiffness_Vi)
 
         # Pressure contribution
         p = ufl.TrialFunction(self._Q)
         self._p_vdxi_Vec = [_fem.Function(Vi[0]) for Vi in self._Vi]
         if self._low_memory:
-            self._p_vdxi = [_fem.form(self._ps*v.dx(i)*dx, jit_params=jit_options)
+            self._p_vdxi = [_fem.form(self._ps*v.dx(i)*dx, jit_options=jit_options)
                             for i in range(self._mesh.geometry.dim)]
         else:
-            self._p_vdxi = [_fem.form(p*v.dx(i)*dx, jit_params=jit_options)
+            self._p_vdxi = [_fem.form(p*v.dx(i)*dx, jit_options=jit_options)
                             for i in range(self._mesh.geometry.dim)]
             self._p_vdxi_Mat = [_fem.petsc.create_matrix(grad_p) for grad_p in self._p_vdxi]
 
@@ -250,14 +254,14 @@ class FractionalStep_AB_CN():
         # Pressure Laplacian/stiffness matrix
         q = ufl.TestFunction(self._Q)
         self._stiffness_Q = _fem.form(ufl.inner(ufl.grad(p), ufl.grad(q))*ufl.dx,
-                                      jit_params=jit_options)
+                                      jit_options=jit_options)
         self._Ap = _fem.petsc.create_matrix(self._stiffness_Q)
 
         # RHS for pressure correction (unscaled)
         if self._low_memory:
-            self._p_rhs = [_fem.form(ufl.div(ufl.as_vector(self._u))*q*dx, jit_params=jit_options)]
+            self._p_rhs = [_fem.form(ufl.div(ufl.as_vector(self._u))*q*dx, jit_options=jit_options)]
         else:
-            self._p_rhs = [_fem.form(u.dx(i)*q*dx, jit_params=jit_options)
+            self._p_rhs = [_fem.form(u.dx(i)*q*dx, jit_options=jit_options)
                            for i in range(self._mesh.geometry.dim)]
             self._divu_Mat = [_fem.petsc.create_matrix(rhs) for rhs in self._p_rhs]
             self._wrk_p = _fem.Function(self._Q)
@@ -266,17 +270,17 @@ class FractionalStep_AB_CN():
         # RHS for velocity update
         self._b3 = _fem.Function(self._Vi[0][0])
         if self._low_memory:
-            self._grad_p = [_fem.form(self._dp.dx(i) * v*dx, jit_params=jit_options)
+            self._grad_p = [_fem.form(self._dp.dx(i) * v*dx, jit_options=jit_options)
                             for i in range(len(self._Vi))]
         else:
-            self._grad_p = [_fem.form(p.dx(i)*v*dx, jit_params=jit_options)
+            self._grad_p = [_fem.form(p.dx(i)*v*dx, jit_options=jit_options)
                             for i in range(self._mesh.geometry.dim)]
             self._grad_p_Mat = [_fem.petsc.create_matrix(grad_p) for grad_p in self._grad_p]
 
         # Convection term for Adams Bashforth step
         self._conv_Vi = _fem.form(ufl.inner(ufl.dot(ufl.as_vector(self._uab),
                                                     ufl.nabla_grad(u)), v)*dx,
-                                  jit_params=jit_options)
+                                  jit_options=jit_options)
 
     def _preassemble(self):
         """
@@ -400,7 +404,7 @@ class FractionalStep_AB_CN():
         .. math::
 
             b_k \\mathrel{+}= b(u_k^{n-1}) + \\int_{\\Omega}
-             p^*\\frac{\\partial v_k}{\\partial x_k}~\\mathrm{d}x.
+            p^*\\frac{\\partial v_k}{\\partial x_k}~\\mathrm{d}x.
 
         :math:`b(u_k^{n-1})` is computed in :py:obj:`FractionalStep_AB_CN.assemble_first`.
         """
@@ -477,8 +481,17 @@ class FractionalStep_AB_CN():
 
         # Set difference vector to previous time step
         if len(self._bcs_p) == 0:
+            # If pressure nullspace, use mumps to deal with singular matrix
+            nullspace_options = {"ksp_type": "preonly", "pc_type": "lu",
+                                 "pc_factor_mat_solver_type": "mumps",
+                                 "mat_mumps_icntl_24": 1,
+                                 "mat_mumps_icntl_25": 0,
+                                 "ksp_error_if_not_converged": 1}
+            warnings.warn(f"Updating PETSc options to {nullspace_options}")
             nullspace = self._Ap.getNullSpace()
             nullspace.remove(self._b2.vector)
+            self._solver_p.updateOptions(nullspace_options)
+            self._solver_p.setOptions(self._Ap)
         converged = self._solver_p.solve(self._b2.vector, self._dp)
         self._ps.x.array[:] = self._p.x.array[:] + self._dp.x.array
         return converged
@@ -537,7 +550,7 @@ class FractionalStep_AB_CN():
         return errors
 
     def solve(self, dt: float, nu: float, max_error: float = 1e-12,
-              max_iter: int = 10, step: int = 0):
+              max_iter: int = 10):
         """
         Propagate splitting scheme one time step
 

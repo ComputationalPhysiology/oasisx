@@ -71,9 +71,9 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
 
     # Compile forms for matrix vector products
     jit_options = {} if jit_options is None else jit_options
-    mass_form = dolfinx.fem.form(mass, jit_params=jit_options)
-    stiffness_form = dolfinx.fem.form(stiffness, jit_params=jit_options)
-    convection_form = dolfinx.fem.form(convection, jit_params=jit_options)
+    mass_form = dolfinx.fem.form(mass, jit_options=jit_options)
+    stiffness_form = dolfinx.fem.form(stiffness, jit_options=jit_options)
+    convection_form = dolfinx.fem.form(convection, jit_options=jit_options)
 
     # Compile form for vector assembly (action)
     dt_inv = dolfinx.fem.Constant(mesh, 1./dt)
@@ -81,7 +81,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
     nu_c = dolfinx.fem.Constant(mesh, nu)
     nu_c.name = "nu"
     rhs = dt_inv * mass - 0.5 * nu_c * stiffness - 0.5*convection
-    rhs_form = dolfinx.fem.form(ufl.action(rhs, u_1), jit_params=jit_options)
+    rhs_form = dolfinx.fem.form(ufl.action(rhs, u_1), jit_options=jit_options)
 
     # Assemble time independent matrices
     # Mass matrix

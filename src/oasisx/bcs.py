@@ -79,7 +79,7 @@ class DirichletBC():
         self, value: Union[np.float64, _fem.Constant,
                            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]],
         method: LocatorMethod,
-        marker: Union[Tuple[_dmesh.MeshTagsMetaClass, np.int32],
+        marker: Union[Tuple[_dmesh.MeshTags, np.int32],
                       Callable[[npt.NDArray[np.float64]], npt.NDArray[np.bool_]]]
     ):
         if method == LocatorMethod.GEOMETRICAL:
@@ -179,7 +179,7 @@ class PressureBC():
             p.t = 1
         """
 
-    _subdomain_data: _dmesh.MeshTagsMetaClass
+    _subdomain_data: _dmesh.MeshTags
     _subdomain_id: Union[np.int32, Tuple[np.int32]]
     _value: Union[np.float64, _fem.Constant,
                   Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]
@@ -190,7 +190,7 @@ class PressureBC():
 
     def __init__(self, value: Union[np.float64, _fem.Constant,
                                     Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]],
-                 marker: Tuple[_dmesh.MeshTagsMetaClass, Union[np.int32, Tuple[np.int32]]]):
+                 marker: Tuple[_dmesh.MeshTags, Union[np.int32, Tuple[np.int32]]]):
         self._subdomain_data, self._subdomain_id = marker
         self._value = value
 

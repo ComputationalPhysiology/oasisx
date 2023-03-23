@@ -59,11 +59,11 @@ class U():
 
     def eval_x(self, x):
         return - np.cos(np.pi * x[0]) * np.sin(np.pi * x[1])\
-            * np.exp(-2.0 * nu * np.pi**2 * self.t),
+            * np.exp(-2.0 * self.nu * np.pi**2 * self.t),
 
     def eval_y(self, x):
         return np.cos(np.pi * x[1]) * np.sin(np.pi * x[0])\
-            * np.exp(-2.0 * nu * np.pi**2 * self.t)
+            * np.exp(-2.0 * self.nu * np.pi**2 * self.t)
 
 
 dt = 1e-2
