@@ -1,0 +1,36 @@
+name: Build documentation
+
+on:
+  pull:
+    branches:
+      - main
+
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  DEB_PYTHON_INSTALL_LAYOUT: deb_system
+
+jobs:
+
+  build:
+    runs-on: ubuntu-22.04
+    container: dolfinx/dolfinx:v0.6.0-r1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: python3 -m pip install ".[test,docs]"
+                
+      - name: Build docs
+        run: jupyter book build -W docs/   
+
+
+      - name: Upload documentation
+        uses: actions/upload-artifact@v3
+        with:
+          name: documentation
+          path: ./docs/_build/html
+          if-no-files-found: error
