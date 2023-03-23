@@ -13,17 +13,13 @@ env:
 jobs:
   test-code:
     runs-on:  ubuntu-22.04
-    container: dolfinx/dolfinx:v0.5.1
+    container: dolfinx/dolfinx:v0.6.0-r1
 
     steps:
       - uses: actions/checkout@v3
 
-      - name: Upgrade pip and setuptools
-        run:
-          python3 -m pip install pip setuptools --upgrade
-
       - name: "Install oasisx"
-        run: pip install .[test]
+        run: python3 -m pip install .[test]
 
       - name: Run tests
         run: |
