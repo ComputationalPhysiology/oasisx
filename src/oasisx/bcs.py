@@ -160,6 +160,7 @@ class PressureBC():
 
         .. highlight:: python
         .. code-block:: python
+
             class OutletPressure():
                 def __init__(self, t:float):
                     self.t = t
