@@ -108,30 +108,19 @@ i = 0
 
 u_ex.t = 0
 
-i = 0
 while u_ex.t < 0.5:
     u_ex.t += dt
     u_time.value = u_ex.t
     p_time.value += dt
 
-    solver.solve(dt, nu, max_iter=1, step=i)
-    # solver.assemble_first(dt, nu)
-    # solver.velocity_tentative_assemble()
-    # solver.velocity_tentative_solve()
-    i += 1
-
-    print(f"{u_ex.t=}, {dolfinx.fem.assemble_scalar(L2_u)=}")
-    print(f"{p_time.value=}, {dolfinx.fem.assemble_scalar(L2_p)=}")
-
-    # with dolfinx.io.VTXWriter(mesh.comm, "test123.bp", [solver.u, u_tent]) as vtx:
-    #     vtx.write(0)
-    # exit()
-    # from IPython import embed
-    # embed()
-
+    solver.solve(dt, nu, max_iter=1)
+    L2_u_loc = dolfinx.fem.assemble_scalar(L2_u)
+    error_u = np.sqrt(mesh.comm.allreduce(L2_u_loc, op=MPI.SUM))
+    L2_p_loc = dolfinx.fem.assemble_scalar(L2_p)
+    error_p = np.sqrt(mesh.comm.allreduce(L2_p_loc, op=MPI.SUM))
+    print(f"{u_ex.t=}, {error_u=}")
+    print(f"{float(p_time.value)}, {error_p=}")
     vtxp.write(p_time.value)
     vtxu.write(u_time.value)
-    if i == 2:
-        break
 vtxu.close()
 vtxp.close()
