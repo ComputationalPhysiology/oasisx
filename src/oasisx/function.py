@@ -3,7 +3,7 @@
 # This file is part of Oasisx
 # SPDX-License-Identifier:    MIT
 
-from typing import List
+from typing import List, Optional
 
 import dolfinx.fem
 import ufl
@@ -45,10 +45,10 @@ class Projector():
     def __init__(self, function: ufl.core.expr.Expr,
                  space: dolfinx.fem.FunctionSpace,
                  bcs: List[dolfinx.fem.DirichletBCMetaClass],
-                 petsc_options: dict = None,
-                 jit_options: dict = None,
-                 form_compiler_options: dict = None,
-                 metadata: dict = None):
+                 petsc_options: Optional[dict] = None,
+                 jit_options: Optional[dict] = None,
+                 form_compiler_options: Optional[dict] = None,
+                 metadata: Optional[dict] = None):
         petsc_options = {} if petsc_options is None else petsc_options
         jit_options = {} if jit_options is None else jit_options
         form_compiler_options = {} if form_compiler_options is None else form_compiler_options
@@ -57,15 +57,15 @@ class Projector():
         u = ufl.TrialFunction(space)
         v = ufl.TestFunction(space)
         a = ufl.inner(u, v) * ufl.dx(metadata=metadata)
-        self._lhs = dolfinx.fem.form(a, jit_params=jit_options,
-                                     form_compiler_params=form_compiler_options)
+        self._lhs = dolfinx.fem.form(a, jit_options=jit_options,
+                                     form_compiler_options=form_compiler_options)
         self._A = dolfinx.fem.petsc.assemble_matrix(self._lhs, bcs=bcs)
         self._A.assemble()
 
         # Compile RHS form and create vector
         L = ufl.inner(function, v) * ufl.dx(metadata=metadata)
-        self._rhs = dolfinx.fem.form(L, jit_params=jit_options,
-                                     form_compiler_params=form_compiler_options)
+        self._rhs = dolfinx.fem.form(L, jit_options=jit_options,
+                                     form_compiler_options=form_compiler_options)
         self._x = dolfinx.fem.Function(space)
         self._b = dolfinx.fem.Function(space)
         self._bcs = bcs

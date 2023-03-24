@@ -33,6 +33,7 @@ from mpi4py import MPI
 from petsc4py import PETSc
 import ufl
 import numpy as np
+from typing import Optional
 
 
 # We define a function, that takes in a mesh, the order `P` of the Lagrange function space for the
@@ -51,7 +52,7 @@ import numpy as np
 # We add some arbitrary data to the variables `dt`, `nu`, `u_1` and `u_ab`,
 # as we are not solving a full problem here.
 
-def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
+def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
     V = dolfinx.fem.FunctionSpace(mesh, ("CG", int(P)))
     dt = 0.5
     nu = 0.3
@@ -73,9 +74,9 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
 
     # Compile forms for matrix vector products
     jit_options = {} if jit_options is None else jit_options
-    mass_form = dolfinx.fem.form(mass, jit_params=jit_options)
-    stiffness_form = dolfinx.fem.form(stiffness, jit_params=jit_options)
-    convection_form = dolfinx.fem.form(convection, jit_params=jit_options)
+    mass_form = dolfinx.fem.form(mass, jit_options=jit_options)
+    stiffness_form = dolfinx.fem.form(stiffness, jit_options=jit_options)
+    convection_form = dolfinx.fem.form(convection, jit_options=jit_options)
 
     # Compile form for vector assembly (action)
     dt_inv = dolfinx.fem.Constant(mesh, 1./dt)
@@ -83,7 +84,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
     nu_c = dolfinx.fem.Constant(mesh, nu)
     nu_c.name = "nu"
     lhs = dt_inv * mass - 0.5 * nu_c * stiffness - 0.5*convection
-    lhs = dolfinx.fem.form(ufl.action(lhs, u_1), jit_params=jit_options)
+    lhs = dolfinx.fem.form(ufl.action(lhs, u_1), jit_options=jit_options)
 
     # Assemble time independent matrices
     # Mass matrix

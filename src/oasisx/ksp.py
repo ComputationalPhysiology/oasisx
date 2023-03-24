@@ -11,10 +11,13 @@ import numpy as np
 
 
 class KSPSolver:
+    _prefix: str
     _ksp: _PETSc.KSP  # Krylov subspace solver
     __slots__ = tuple(__annotations__)
 
-    def __init__(self, comm: MPI.Comm, petsc_options: dict = None):
+    def __init__(self, comm: MPI.Comm,
+                 petsc_options: typing.Optional[dict] = None,
+                 prefix="oasis_solver"):
         """Lightweight wrapper around the PETSc KSP solver
         Args:
             comm: MPI communicator used in PETSc Solver
@@ -25,11 +28,20 @@ class KSPSolver:
         """
         petsc_options = {} if petsc_options is None else petsc_options
         self._ksp = _PETSc.KSP().create(comm)
-        prefix = f"Oasis_solve_{id(self)}"
-        self._ksp.setOptionsPrefix(prefix)
+        self._prefix = prefix
+        self.updateOptions(petsc_options)
+
+    def updateOptions(self, options: dict):
+        """
+        Update PETSc options.
+
+        ..note::
+            that :func:`setOptions` has to be called after this operation
+        """
+        self._ksp.setOptionsPrefix(self._prefix)
         opts = _PETSc.Options()
-        opts.prefixPush(prefix)
-        for k, v in petsc_options.items():
+        opts.prefixPush(self._prefix)
+        for k, v in options.items():
             opts[k] = v
         opts.prefixPop()
         self._ksp.setFromOptions()
@@ -55,8 +67,11 @@ class KSPSolver:
         """
         Delete PETSc options manually due to https://gitlab.com/petsc/petsc/-/issues/1201
         """
-        opts = _PETSc.Options()
-        all_opts = opts.getAll()
-        for key in all_opts.keys():
-            if f"Oasis_solve_{id(self)}" in key:
-                opts.delValue(key)
+        try:
+            opts = _PETSc.Options()
+            all_opts = opts.getAll()
+            for key in all_opts.keys():
+                if f"Oasis_solve_{id(self)}" in key:
+                    opts.delValue(key)
+        except TypeError:
+            pass

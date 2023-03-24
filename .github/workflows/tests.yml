@@ -1,0 +1,33 @@
+name: Test package
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+  
+env:
+  DEB_PYTHON_INSTALL_LAYOUT: deb_system
+    
+jobs:
+  test-code:
+    runs-on:  ubuntu-22.04
+    container: dolfinx/dolfinx:nightly
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: "Install oasisx"
+        run: python3 -m pip install .[test]
+
+      - name: Run tests
+        run: |
+          python3 -m pytest
+
+      - name: Upload coverage report as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: code-coverage-report
+          path: htmlcov
+          if-no-files-found: error

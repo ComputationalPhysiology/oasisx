@@ -1,15 +1,9 @@
 # We choose ubuntu 22.04 as our base docker image
 
-FROM dolfinx/dolfinx:v0.5.1
+FROM dolfinx/dolfinx:nightly
 
-# We install pip and git from https://packages.ubuntu.com/jammy/apt
 
-# We upgrade pip and install setuptools
-RUN pip3 install pip setuptools --upgrade
-
-# We remove the version of setuptools install via apt, as it is outdated
-RUN apt-get purge -y python3-setuptools
-
+ENV DEB_PYTHON_INSTALL_LAYOUT=deb_system
 
 # We set the working directory to install docker dependencies
 WORKDIR /tmp/
@@ -29,7 +23,7 @@ COPY . ${HOME}
 USER root
 RUN chown -R ${NB_UID} ${HOME}
 
-RUN pip3 install .[docs,test]
+RUN python3 -m pip install .[docs,test]
 
 USER ${NB_USER}
 ENTRYPOINT []
