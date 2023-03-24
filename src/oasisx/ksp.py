@@ -66,8 +66,11 @@ class KSPSolver:
         """
         Delete PETSc options manually due to https://gitlab.com/petsc/petsc/-/issues/1201
         """
-        opts = _PETSc.Options()
-        all_opts = opts.getAll()
-        for key in all_opts.keys():
-            if f"Oasis_solve_{id(self)}" in key:
-                opts.delValue(key)
+        try:
+            opts = _PETSc.Options()
+            all_opts = opts.getAll()
+            for key in all_opts.keys():
+                if f"Oasis_solve_{id(self)}" in key:
+                    opts.delValue(key)
+        except TypeError:
+            pass
