@@ -13,7 +13,7 @@ from dolfinx import fem as _fem
 from dolfinx import la as _la
 from dolfinx import mesh as _dmesh
 from petsc4py import PETSc as _PETSc
-
+from mpi4py import MPI as _MPI
 from .bcs import DirichletBC, PressureBC
 from .ksp import KSPSolver
 import warnings
@@ -491,6 +491,14 @@ class FractionalStep_AB_CN():
             self._solver_p.setOptions(self._Ap)
 
         converged = self._solver_p.solve(self._b2.vector, self._dp)
+        if len(self._bcs_p) == 0:
+            warnings.warn("Making sure that mean of phi is 0 with lack of pressure conditions")
+            vol = self._mesh.comm.allreduce(
+                _fem.assemble_scalar(_fem.form(1*ufl.dx(domain=self._mesh))), op=_MPI.SUM)
+            phi_avg = self._mesh.comm.allreduce(
+                _fem.assemble_scalar(_fem.form(self._dp*ufl.dx)),
+                op=_MPI.SUM)/vol
+        self._dp.x.array[:] -= phi_avg
         self._ps.x.array[:] = self._p.x.array[:] + self._dp.x.array
         return converged
 

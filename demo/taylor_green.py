@@ -57,7 +57,7 @@ parser.add_argument("-p", dest="p_deg", type=int, help="Degree of pressure space
 parser.add_argument("-lm", "--low-memory", dest="lm", action="store_true",
                     default=False, help="Use low memory version of Oasisx")
 inputs = parser.parse_args()
-
+# FIXME: add loglevel to input parser
 logger = logging.getLogger("Oasisx")
 
 dt = inputs.dt
@@ -77,8 +77,8 @@ solver_options = {"tentative": {"ksp_type": "preonly", "pc_type": "lu"},
                   "pressure": {"ksp_type": "preonly", "pc_type": "lu"},
                   "scalar": {"ksp_type": "preonly", "pc_type": "lu"}}
 
-space_errors = np.empty((2, len(inputs.Ns)), dtype=np.float64)
-hs = np.empty(len(inputs.Ns), dtype=np.float64)
+space_errors = np.zeros((2, len(inputs.Ns)), dtype=np.float64)
+hs = np.zeros(len(inputs.Ns), dtype=np.float64)
 for n, N in enumerate(inputs.Ns):
 
     mesh = dolfinx.mesh.create_rectangle(
@@ -117,8 +117,8 @@ for n, N in enumerate(inputs.Ns):
 
     # Set initial conditions for pressure
     x = ufl.SpatialCoordinate(mesh)
-    p_ex = -1/4 * (ufl.cos(2*ufl.pi*x[0])+ufl.cos(2*ufl.pi*x[1]))*ufl.exp(-4*ufl.pi**2*nu*p_time)
-    p_expr = dolfinx.fem.Expression(p_ex, solver._Q.element.interpolation_points())
+    man_p = -0.25 * (ufl.cos(2*ufl.pi*x[0])+ufl.cos(2*ufl.pi*x[1]))*ufl.exp(-4*ufl.pi**2*nu*p_time)
+    p_expr = dolfinx.fem.Expression(man_p, solver._Q.element.interpolation_points())
     solver._p.interpolate(p_expr)
     vtxu = dolfinx.io.VTXWriter(mesh.comm, "u.bp", [solver.u])
     vtxp = dolfinx.io.VTXWriter(mesh.comm, "p.bp", [solver._p])
@@ -129,10 +129,10 @@ for n, N in enumerate(inputs.Ns):
     )*ufl.exp(-2*ufl.pi**2*nu*u_time)
     diff_u = solver.u-man_u
     L2_u = dolfinx.fem.form(ufl.inner(diff_u, diff_u) * ufl.dx)
-    diff_p = solver._p - p_ex
+    diff_p = solver._p - man_p
     L2_p = dolfinx.fem.form(ufl.inner(diff_p, diff_p) * ufl.dx)
 
-    error_space_time = np.empty((2, num_steps), dtype=np.float64)
+    error_space_time = np.zeros((2, num_steps), dtype=np.float64)
     u_time.value = T_start
     for i in range(num_steps):
         u_time.value += dt
@@ -143,11 +143,13 @@ for n, N in enumerate(inputs.Ns):
         error_u = mesh.comm.allreduce(L2_u_loc, op=MPI.SUM)
         L2_p_loc = dolfinx.fem.assemble_scalar(L2_p)
         error_p = mesh.comm.allreduce(L2_p_loc, op=MPI.SUM)
-        logger.debug(f"{u_ex.t=}, {error_u=}")
+        logger.debug(f"{float(u_time.value)}, {error_u=}")
         logger.debug(f"{float(p_time.value)}, {error_p=}")
+        logger.debug("*"*10)
         vtxp.write(p_time.value)
         vtxu.write(u_time.value)
         error_space_time[:, i] = [error_u, error_p]
+
     vtxu.close()
     vtxp.close()
 
