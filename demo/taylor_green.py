@@ -27,6 +27,9 @@ from mpi4py import MPI
 import logging
 import oasisx
 import argparse
+from petsc4py import PETSc
+import numpy.typing as npt
+from typing import List
 
 
 class U():
@@ -34,11 +37,11 @@ class U():
         self.t = t
         self.nu = nu
 
-    def eval_x(self, x):
+    def eval_x(self, x: npt.NDArray[np.float64]) -> npt.NDArray[PETSc.ScalarType]:
         return - np.cos(np.pi * x[0]) * np.sin(np.pi * x[1]) \
             * np.exp(-2.0 * self.nu * np.pi**2 * float(self.t))
 
-    def eval_y(self, x):
+    def eval_y(self, x: npt.NDArray[np.float64]) -> npt.NDArray[PETSc.ScalarType]:
         return np.cos(np.pi * x[1]) * np.sin(np.pi * x[0]) \
             * np.exp(-2.0 * self.nu * np.pi**2 * float(self.t))
 
@@ -90,20 +93,20 @@ for n, N in enumerate(inputs.Ns):
     # Locate facets for boundary conditions and create  meshtags
     mesh.topology.create_connectivity(dim, dim+1)
     facets = dolfinx.mesh.exterior_facet_indices(mesh.topology)
-    value = 3
+    value = np.int32(3)
     values = np.full_like(facets, value, dtype=np.int32)
     sort = np.argsort(facets)
     facet_tags = dolfinx.mesh.meshtags(mesh, dim, facets[sort], values[sort])
 
-    u_time = dolfinx.fem.Constant(mesh, np.float64(T_start))
-    p_time = dolfinx.fem.Constant(mesh, np.float64(T_start-dt/2.))
+    u_time = dolfinx.fem.Constant(mesh, PETSc.ScalarType(T_start))
+    p_time = dolfinx.fem.Constant(mesh, PETSc.ScalarType(T_start-dt/2.))
     u_ex = U(t=u_time, nu=nu)
 
     bcx = oasisx.DirichletBC(u_ex.eval_x, oasisx.LocatorMethod.TOPOLOGICAL, (facet_tags, value))
     bcy = oasisx.DirichletBC(u_ex.eval_y, oasisx.LocatorMethod.TOPOLOGICAL, (facet_tags, value))
 
     bcs_u = [[bcx], [bcy]]
-    bcs_p = []
+    bcs_p: List[oasisx.PressureBC] = []
     # Create fractional step solver
     solver = oasisx.FractionalStep_AB_CN(
         mesh, el_u, el_p, bcs_u=bcs_u, bcs_p=bcs_p,
