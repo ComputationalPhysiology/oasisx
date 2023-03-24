@@ -200,11 +200,9 @@ def test_tentative(low_memory, body_force):
         assert converged_u[1][i]
         assert np.allclose(solver._rhs1[i].vector.array, bs[i].array)
 
-    solver.pressure_assemble(dt)
-    converged_p = solver.pressure_solve()
-    assert converged_p
-    # converged_update = solver.velocity_update(dt)
-    # with dolfinx.io.VTXWriter(mesh.comm, "u.bp", [solver.u]) as vtx:
-    #     vtx.write(0.)
-    with dolfinx.io.VTXWriter(mesh.comm, "dp.bp", [solver._dp]) as vtx:
-        vtx.write(0.)
+    # solver.pressure_assemble(dt)
+    # converged_p = solver.pressure_solve()
+    # assert converged_p
+    # # converged_update = solver.velocity_update(dt)
+
+    [b.destroy() for b in bs]

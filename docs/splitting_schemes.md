@@ -201,7 +201,8 @@ $$
 \left(\frac{1}{\Delta t} M + \frac{1}{2} C+ \frac{1}{2}\nu K\right) \mathbf{c}_k = \frac{1}{\Delta t} M \mathbf{c}_k^{n-1} -\frac{1}{2} C \mathbf{c}_k^{n-1} - \frac{1}{2}\nu K \mathbf{c}_k^{n-1} + P^k(p^*, f^{n-\frac{1}{2}}, h^{n-\frac{1}{2}})
 $$
 
-where 
+where
+
 $$
 \begin{align}
 M_{ij} &= \int_\Omega \phi_j \phi_i ~\mathrm{d}x,\\

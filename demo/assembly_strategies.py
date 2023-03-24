@@ -53,7 +53,7 @@ from typing import Optional
 # as we are not solving a full problem here.
 
 def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
-    V = dolfinx.fem.FunctionSpace(mesh, ("CG", int(P)))
+    V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", int(P)))
     dt = 0.5
     nu = 0.3
     u = ufl.TrialFunction(V)

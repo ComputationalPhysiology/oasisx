@@ -117,6 +117,12 @@ class Projector():
     def x(self):
         return self._x
 
+    def __del__(self):
+        self._ksp.destroy()
+        self._A.destroy()
+        self._b.destroy()
+        self._x.destroy()
+
 
 class LumpedProject():
     """Projector using a lumped mass matrix"""

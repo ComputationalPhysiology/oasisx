@@ -1,9 +1,24 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
+title: Oasisx
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
 authors:
-- family-names: "Dokken"
-  given-names: "Jørgen S."
-  orcid: "https://orcid.org/0000-0001-6489-8858"
-title: "Template for reproducible research"
-version: 0.1.0
-date-released: 2022-09-13
+  - given-names: Jørgen Schartum
+    family-names: Dokken
+    email: dokken@simula.no
+    affiliation: Simula Research Laboratory
+    orcid: 'https://orcid.org/0000-0001-6489-8858'
+repository-code: 'https://github.com/ComputationalPhysiology/oasisx/'
+url: 'https://computationalphysiology.github.io/oasisx/'
+abstract: >-
+  High-performant Navier-Stokes solver using IPCS splitting
+  scheme
+keywords:
+  - FEM
+  - FEniCSx
+  - Navier-Stokes
+license: MIT
+version: v0.2.0
+date-released: '2023-03-24'

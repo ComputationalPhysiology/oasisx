@@ -40,7 +40,7 @@ import typing
 
 
 def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = None):
-    V = dolfinx.fem.FunctionSpace(mesh, ("CG", int(P)))
+    V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", int(P)))
 
     def f(x):
         return 2*np.sin(x[0])+3+2*x[1]
