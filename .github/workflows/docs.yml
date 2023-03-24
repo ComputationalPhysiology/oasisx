@@ -15,7 +15,7 @@ jobs:
 
   build:
     runs-on: ubuntu-22.04
-    container: dolfinx/dolfinx:v0.6.0-r1
+    container: dolfinx/dolfinx:nightly
 
     steps:
       - name: Checkout

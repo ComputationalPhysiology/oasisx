@@ -35,10 +35,12 @@ class U():
         self.nu = nu
 
     def eval_x(self, x):
-        return - np.cos(np.pi * x[0]) * np.sin(np.pi * x[1]) * np.exp(-2.0 * self.nu * np.pi**2 * float(self.t))
+        return - np.cos(np.pi * x[0]) * np.sin(np.pi * x[1]) \
+            * np.exp(-2.0 * self.nu * np.pi**2 * float(self.t))
 
     def eval_y(self, x):
-        return np.cos(np.pi * x[1]) * np.sin(np.pi * x[0]) * np.exp(-2.0 * self.nu * np.pi**2 * float(self.t))
+        return np.cos(np.pi * x[1]) * np.sin(np.pi * x[0]) \
+            * np.exp(-2.0 * self.nu * np.pi**2 * float(self.t))
 
 
 desc = "Taylor-Green convergence demo"
@@ -169,7 +171,7 @@ hs = hs[order]
 
 space_errors[0, :] = space_errors[0, order]
 space_errors[1, :] = space_errors[1, order]
-logger.info(
-    f"Convergence rates u: {np.log(space_errors[0, 1:] / space_errors[0, :-1]) / np.log(hs[1:]/hs[:-1])}")
-logger.info(
-    f"Convergence rates p: {np.log(space_errors[1, 1:] / space_errors[1, :-1]) / np.log(hs[1:]/hs[:-1])}")
+rate_u = np.log(space_errors[0, 1:] / space_errors[0, :-1]) / np.log(hs[1:]/hs[:-1])
+rate_p = np.log(space_errors[1, 1:] / space_errors[1, :-1]) / np.log(hs[1:]/hs[:-1])
+logger.info(f"Convergence rates u: {rate_u}")
+logger.info(f"Convergence rates p: {rate_p}")

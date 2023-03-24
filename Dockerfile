@@ -1,6 +1,6 @@
 # We choose ubuntu 22.04 as our base docker image
 
-FROM dolfinx/dolfinx:v0.6.0-r1
+FROM dolfinx/dolfinx:nightly
 
 
 ENV DEB_PYTHON_INSTALL_LAYOUT=deb_system

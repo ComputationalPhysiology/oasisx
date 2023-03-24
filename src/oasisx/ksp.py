@@ -15,7 +15,8 @@ class KSPSolver:
     _ksp: _PETSc.KSP  # Krylov subspace solver
     __slots__ = tuple(__annotations__)
 
-    def __init__(self, comm: MPI.Comm, petsc_options: dict = None,
+    def __init__(self, comm: MPI.Comm,
+                 petsc_options: typing.Optional[dict] = None,
                  prefix="oasis_solver"):
         """Lightweight wrapper around the PETSc KSP solver
         Args:

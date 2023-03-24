@@ -4,7 +4,7 @@
 # SPDX-License-Identifier:    MIT
 
 from typing import List, Optional, Tuple
-
+import logging
 import numpy as np
 import numpy.typing as npt
 import ufl
@@ -16,7 +16,6 @@ from petsc4py import PETSc as _PETSc
 from mpi4py import MPI as _MPI
 from .bcs import DirichletBC, PressureBC
 from .ksp import KSPSolver
-import warnings
 
 __all__ = ["FractionalStep_AB_CN"]
 
@@ -130,12 +129,16 @@ class FractionalStep_AB_CN():
     # Annotate all functions
     # __slots__ = tuple(__annotations__)
 
-    def __init__(self, mesh: _dmesh.Mesh, u_element: Tuple[str, int],
-                 p_element: Tuple[str, int], bcs_u: List[List[DirichletBC]],
+    def __init__(self,
+                 mesh: _dmesh.Mesh,
+                 u_element: Tuple[str, int],
+                 p_element: Tuple[str, int],
+                 bcs_u: List[List[DirichletBC]],
                  bcs_p: List[PressureBC],
-                 solver_options: dict = None, jit_options: dict = None,
+                 solver_options: Optional[dict] = None,
+                 jit_options: Optional[dict] = None,
                  body_force: Optional[ufl.core.expr.Expr] = None,
-                 options: dict = None):
+                 options: Optional[dict] = None):
         self._mesh = mesh
 
         v_el = ufl.VectorElement(u_element[0], mesh.ufl_cell(), u_element[1])
@@ -307,6 +310,7 @@ class FractionalStep_AB_CN():
         if len(self._bcs_p) == 0:
             nullspace = _PETSc.NullSpace().create(constant=True, comm=self._mesh.comm)
             self._Ap.setNullSpace(nullspace)
+            self._Ap.setNearNullSpace(nullspace)
 
         # Assemble constant body forces
         for i in range(len(self._u)):
@@ -475,6 +479,7 @@ class FractionalStep_AB_CN():
         """
         Solve pressure correction problem
         """
+        logger = logging.getLogger("oasisx")
 
         # Set difference vector to previous time step
         if len(self._bcs_p) == 0:
@@ -484,7 +489,7 @@ class FractionalStep_AB_CN():
                                  "mat_mumps_icntl_24": 1,
                                  "mat_mumps_icntl_25": 0,
                                  "ksp_error_if_not_converged": 1}
-            warnings.warn(f"Updating PETSc options to {nullspace_options}")
+            logger.debug(f"Updating PETSc options to {nullspace_options}")
             nullspace = self._Ap.getNullSpace()
             nullspace.remove(self._b2.vector)
             self._solver_p.updateOptions(nullspace_options)
@@ -492,7 +497,7 @@ class FractionalStep_AB_CN():
 
         converged = self._solver_p.solve(self._b2.vector, self._dp)
         if len(self._bcs_p) == 0:
-            warnings.warn("Making sure that mean of phi is 0 with lack of pressure conditions")
+            logger.debug("Making sure that mean of phi is 0 with lack of pressure conditions")
             vol = self._mesh.comm.allreduce(
                 _fem.assemble_scalar(_fem.form(1*ufl.dx(domain=self._mesh))), op=_MPI.SUM)
             phi_avg = self._mesh.comm.allreduce(
@@ -570,15 +575,11 @@ class FractionalStep_AB_CN():
         inner_it = 0
         diff = 1e8
         self._ps.x.array[:] = self._p.x.array[:]
-        import dolfinx
 
-        with dolfinx.io.VTXWriter(self._ps.function_space.mesh.comm, "p_debug.bp", [self._ps]) as vtx:
-            vtx.write(0.0)
         [[bc.update_bc() for bc in bcu] for bcu in self._bcs_u]
         self.assemble_first(dt, nu)
         while inner_it < max_iter and diff > max_error:
             inner_it += 1
-           # Check init conditions
             self.velocity_tentative_assemble()
             diff, errors = self.velocity_tentative_solve()
 
