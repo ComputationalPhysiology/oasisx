@@ -503,7 +503,7 @@ class FractionalStep_AB_CN():
             phi_avg = self._mesh.comm.allreduce(
                 _fem.assemble_scalar(_fem.form(self._dp*ufl.dx)),
                 op=_MPI.SUM)/vol
-        self._dp.x.array[:] -= phi_avg
+            self._dp.x.array[:] -= phi_avg
         self._ps.x.array[:] = self._p.x.array[:] + self._dp.x.array
         return converged
 
