@@ -1,25 +1,19 @@
-# Book settings
-# Learn more at https://jupyterbook.org/customize/config.html
-
 title: Oasisx
 author: Jørgen S. Dokken
 logo: "logo.png"
 copyright: "2022"
 
-# Force re-execution of notebooks on each build.
-# See https://jupyterbook.org/content/execute.html
 execute:
   execute_notebooks: force
   timeout: 600
 
-# Information about where the book exists on the web
 repository:
-  url: https://github.com/ComputationalPhysiology/oasisx # Online location of your book
-  path_to_book: _sources # Optional path to your book, relative to the repository root
-  branch: gh-pages  # Which branch of the repository should be used when creating links (optional)
+  url: https://github.com/ComputationalPhysiology/oasisx
+  path_to_book: docs
+  branch: main
 
 launch_buttons:
-  notebook_interface: "jupyterlab" # The interface interactive links will activate ["classic", "jupyterlab"]
+  notebook_interface: "jupyterlab"
   binderhub_url: "https://mybinder.org"
 
 html:
@@ -33,6 +27,9 @@ parse:
     - linkify
 
 sphinx:
+  config:
+    html_last_updated_fmt: "%b %d, %Y"
+
   extra_extensions:
   - 'sphinx.ext.autodoc'
   - 'sphinx.ext.napoleon'

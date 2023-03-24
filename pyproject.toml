@@ -7,13 +7,14 @@ name = "OasisX"
 authors = [
     {name = "Jørgen S. Dokken", email = "dokken@simula.no"}
     ]
-version = "0.1.0" # Version number
+version = "0.2.0" # Version number
 description = "A modern implementation of Oasis"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {file = "LICENSE"}
 dependencies = [
-    'numpy'
+    'numpy',
+    'fenics-dolfinx>0.6.0'
 ]
 
 [project.scripts]

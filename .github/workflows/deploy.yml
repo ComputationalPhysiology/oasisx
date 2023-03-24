@@ -34,7 +34,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-22.04
-    needs: [build-docs]
+    needs: [build-docs,run-tests]
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -48,6 +48,12 @@ jobs:
         with:
           name: documentation
           path: "./documentation"
+      
+      - name: Download docs artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: code-coverage-report
+          path: "./documentation/code-coverage-report"
 
       - name: Upload page artifact
         uses: actions/upload-pages-artifact@v1

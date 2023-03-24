@@ -13,7 +13,7 @@ import numpy as np
 
 def test_projector():
     mesh = dolfinx.mesh.create_unit_square(MPI.COMM_WORLD, 10, 10)
-    V = dolfinx.fem.FunctionSpace(mesh, ("CG", 2))
+    V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 2))
 
     # Interpolate initial solutiom
     u = dolfinx.fem.Function(V)
