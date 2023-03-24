@@ -128,7 +128,7 @@ class FractionalStep_AB_CN():
     _M_bcs: _PETSc.Mat  # Mass matrix with bcs applied
 
     # Annotate all functions
-    __slots__ = tuple(__annotations__)
+    # __slots__ = tuple(__annotations__)
 
     def __init__(self, mesh: _dmesh.Mesh, u_element: Tuple[str, int],
                  p_element: Tuple[str, int], bcs_u: List[List[DirichletBC]],
@@ -143,7 +143,7 @@ class FractionalStep_AB_CN():
 
         # Initialize velocity functions for variational problem
         self._V = _fem.FunctionSpace(mesh, v_el)
-        self._sol_u = _fem.Function(self._V)  # Function for outputting vector functions
+        self._sol_u = _fem.Function(self._V, name="u")  # Function for outputting vector functions
 
         self._Vi = [self._V.sub(i).collapse() for i in range(self._V.num_sub_spaces)]
         self._u = [_fem.Function(Vi[0], name=f"u{i}") for (i, Vi) in enumerate(self._Vi)]
@@ -345,9 +345,9 @@ class FractionalStep_AB_CN():
 
         .. math::
 
-            b_k=\\left(\\frac{1}{\\delta t}M  + \\frac{1}{2} C +\\frac{1}{2}\\nu K\\right)u_k^{n-1}
+            b_k=\\left(\\frac{1}{\\delta t}M  0 \\frac{1}{2} C -\\frac{1}{2}\\nu K\\right)u_k^{n-1}
             + \\int_{\\Omega} f_k^{n-\\frac{1}{2}}v_k~\\mathrm{d}x
-            + \\int h^{n-\\frac{1}{2}} n_k \\nabla_k v~\\mathrm{dx}
+            + \\int h^{n-\\frac{1}{2}} n_k \\nabla_k v~\\mathrm{d}x
 
         Args:
             dt: The time step
@@ -357,7 +357,6 @@ class FractionalStep_AB_CN():
         for i, (u_ab, u_1, u_2) in enumerate(zip(self._uab, self._u1, self._u2)):
             u_ab.x.set(0)
             u_ab.x.array[:] = 1.5 * u_1.x.array - 0.5 * u_2.x.array
-
         self._A.zeroEntries()
         _fem.petsc.assemble_matrix(self._A, a=self._conv_Vi)  # type: ignore
         self._A.assemble()
@@ -370,10 +369,10 @@ class FractionalStep_AB_CN():
         # Update Pressure BC
         for bc in self._bcs_p:
             bc.update_bc()
-
+       
         # Compute rhs for all velocity components
-        for i, ui in enumerate(self._u):
-
+        for i, _ in enumerate(self._u):
+            self._b_first[i].x.set(0)
             # Start with transient convection and difffusion
             self._A.mult(self._u1[i].vector, self._wrk_comp.vector)
             self._wrk_comp.x.scatter_forward()
@@ -439,10 +438,8 @@ class FractionalStep_AB_CN():
             for bc in self._bcs_u[i]:
                 bc.apply(self._rhs1[i].vector)
 
-            # Use temporary storage, as it is only used in `assemble_first`
             self._u[i].vector.copy(result=self._wrk_comp.vector)
             errors[i] = self._solver_u.solve(self._rhs1[i].vector, self._u[i])
-            print(self._u[i].x.array[self._bcs_u[0][0]._bc.dof_indices()[0]])
             # Compute difference from last inner iter
             self._wrk_comp.vector.axpy(-1, self._u[i].vector)
             diff += self._wrk_comp.vector.norm(_PETSc.NormType.NORM_2)
@@ -492,6 +489,7 @@ class FractionalStep_AB_CN():
             nullspace.remove(self._b2.vector)
             self._solver_p.updateOptions(nullspace_options)
             self._solver_p.setOptions(self._Ap)
+
         converged = self._solver_p.solve(self._b2.vector, self._dp)
         self._ps.x.array[:] = self._p.x.array[:] + self._dp.x.array
         return converged
@@ -550,7 +548,7 @@ class FractionalStep_AB_CN():
         return errors
 
     def solve(self, dt: float, nu: float, max_error: float = 1e-12,
-              max_iter: int = 10):
+              max_iter: int = 10, step: int = 0):
         """
         Propagate splitting scheme one time step
 
@@ -564,21 +562,68 @@ class FractionalStep_AB_CN():
         inner_it = 0
         diff = 1e8
         self._ps.x.array[:] = self._p.x.array[:]
-        # FIXME: DEBUG THIS TOMORROW
+        import dolfinx
+
+        with dolfinx.io.VTXWriter(self._ps.function_space.mesh.comm, "p_debug.bp", [self._ps]) as vtx:
+            vtx.write(0.0)
         [[bc.update_bc() for bc in bcu] for bcu in self._bcs_u]
         self.assemble_first(dt, nu)
         while inner_it < max_iter and diff > max_error:
             inner_it += 1
+           # Check init conditions
+            _u_tmp = dolfinx.fem.Function(self._sol_u.function_space)
             self.velocity_tentative_assemble()
             diff, errors = self.velocity_tentative_solve()
-            if step == 0:
-                return diff
+
+            V = self._u[0].function_space
+            # u = ufl.TrialFunction(V)
+            v = ufl.TestFunction(V)
+            # a_debug = 1./dt * ufl.inner(u, v)*ufl.dx
+            # for i in range(self._mesh.geometry.dim):
+            #     a_debug += 1/2 * (1.5*self._u1[i] - 0.5*self._u2[i])*u.dx(i)*v*ufl.dx
+            # a_debug += 0.5*nu*ufl.inner(ufl.grad(u), ufl.grad(v))*ufl.dx
+            # A_debug = dolfinx.fem.petsc.assemble_matrix(dolfinx.fem.form(a_debug))
+            # A_debug.assemble()
+            # for bcu in self._bcs_u[0]:
+            #     A_debug.zeroRowsLocal(bcu._bc.dof_indices()[0], 1.)
+            # aa = A_debug.convert("dense").getDenseArray()
+            # ab = self._A.copy().convert("dense").getDenseArray()
+            rhses = []
+            pes = []
+            for i in range(self._mesh.geometry.dim):
+                L_debug = 1./dt * ufl.inner(self._u1[i], v)*ufl.dx
+                for j in range(self._mesh.geometry.dim):
+                    L_debug -= 1/2 * (1.5*self._u1[j] - 0.5*self._u2[j])*self._u1[i].dx(j)*v*ufl.dx
+                L_debug -= 1/2*nu*ufl.inner(ufl.grad(self._u1[i]), ufl.grad(v))*ufl.dx
+                pes.append(dolfinx.fem.petsc.assemble_vector(
+                    dolfinx.fem.form(self._ps * v.dx(i) * ufl.dx)))
+                b_debug = dolfinx.fem.petsc.assemble_vector(dolfinx.fem.form(L_debug))
+                # for bc in self._bcs_u[i]:
+                #     bc.apply(b_debug)
+                rhses.append(b_debug)
+            for i in range(self._mesh.geometry.dim):
+                print(np.max(np.abs(rhses[i].array - self._b_first[i].x.array)))
+            for i in range(self._mesh.geometry.dim):
+                print(np.max(np.abs(pes[i].array - self._p_vdxi_Vec[i].x.array)))
+
+            from IPython import embed
+            embed()
             assert (errors > 0).all()
+            with dolfinx.io.VTXWriter(self.u.function_space.mesh.comm, "u_post.bp", [_u_tmp]) as vtx:
+                for ui, (_, map) in zip(self._u2, self._Vi):
+                    _u_tmp.x.array[map] = ui.x.array
+                vtx.write(0.0)
+                for ui, (_, map) in zip(self._u1, self._Vi):
+                    _u_tmp.x.array[map] = ui.x.array
+                vtx.write(1.0)
+                for ui, (_, map) in zip(self._u, self._Vi):
+                    _u_tmp.x.array[map] = ui.x.array
+                vtx.write(2.)
             self.pressure_assemble(dt)
             error_p = self.pressure_solve()
             assert error_p > 0
-            print(inner_it, diff)
-        #assert inner_it != max_iter
+
+        # assert inner_it != max_iter
         self.velocity_update(dt)
 
         # Propagate solutions u1->u2, u->u1
@@ -587,6 +632,8 @@ class FractionalStep_AB_CN():
             self._u1[i].x.array[:] = self._u[i].x.array
 
         self._p.x.array[:] = self._ps.x.array[:]
+        if step == 2:
+            exit()
         return diff
 
     @property
