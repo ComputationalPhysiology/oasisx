@@ -32,6 +32,7 @@ docs = [
     "jupyter-book",
     "jupytext",
     "seaborn",
+    "pydata-sphinx-theme==0.13.1", # Ref: https://github.com/executablebooks/sphinx-book-theme/issues/711
 ]
 
 binder = [
