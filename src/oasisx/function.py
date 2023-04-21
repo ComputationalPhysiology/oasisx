@@ -120,8 +120,8 @@ class Projector():
     def __del__(self):
         self._ksp.destroy()
         self._A.destroy()
-        self._b.destroy()
-        self._x.destroy()
+        self._b.vector.destroy()
+        self._x.vector.destroy()
 
 
 class LumpedProject():

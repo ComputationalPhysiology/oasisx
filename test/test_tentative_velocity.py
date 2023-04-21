@@ -136,7 +136,7 @@ def test_tentative(low_memory, body_force):
     dt = 0.1
     nu = 0.5
 
-    # Set some almost sensible initial conditons
+    # Set some almost sensible initial conditions
     inlet.t = -2*dt
     solver._u2[0].interpolate(inlet.eval)
     solver._u2[1].interpolate(inlet.eval)

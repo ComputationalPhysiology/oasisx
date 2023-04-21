@@ -19,11 +19,15 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: "Install oasisx"
-        run: python3 -m pip install .[test]
+        run: python3 -m pip install .[test,docs]
 
       - name: Run tests
+        run: python3 -m pytest
+
+      - name: "Run demos"
         run: |
-          python3 -m pytest
+          python3 demo/taylor_green.py  -N 8 -N 16 -N 32 -dt=0.005
+          python3 demo/assembly_strategies.py 
 
       - name: Upload coverage report as artifact
         uses: actions/upload-artifact@v3
