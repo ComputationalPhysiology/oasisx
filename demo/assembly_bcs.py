@@ -222,8 +222,8 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
     return num_dofs_global, new_lhs, new_rhs, oasis_lhs, oasis_rhs, oasis_total, new_total
 
 
-# We solve the problem on a unit cube that is split into tetrahedras with `Nx`,`Ny` and `Nx`
-# tetrahera in the x, y and z-direction respectively.
+# We solve the problem on a unit cube that is split into tetrahedra with `Nx`,`Ny` and `Nx`
+# tetrahedra in the x, y and z-direction respectively.
 
 def run_parameter_sweep(Nx: int, Ny: int, Nz: int, repeats: int, min_degree: int,
                         max_degree: int) -> dict:

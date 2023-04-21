@@ -204,7 +204,8 @@ class PressureBC():
             V: The velocity function space
             Q: The pressure function space
         """
-        mesh = self._subdomain_data.mesh  # type: ignore
+        mesh = V.mesh
+        assert mesh.topology == self._subdomain_data.topology
         # Create pressure "Neumann" condition
         v = ufl.TestFunction(V)
         ds = ufl.Measure("ds", domain=mesh, subdomain_data=self._subdomain_data,

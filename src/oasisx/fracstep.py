@@ -8,6 +8,7 @@ import logging
 import numpy as np
 import numpy.typing as npt
 import ufl
+import basix
 from dolfinx import cpp as _cpp
 from dolfinx import fem as _fem
 from dolfinx import la as _la
@@ -141,8 +142,16 @@ class FractionalStep_AB_CN():
                  options: Optional[dict] = None):
         self._mesh = mesh
 
-        v_el = ufl.VectorElement(u_element[0], mesh.ufl_cell(), u_element[1])
-        p_el = ufl.FiniteElement(p_element[0], mesh.ufl_cell(), p_element[1])
+        cellname = mesh.ufl_cell().cellname()
+        v_family = basix.finite_element.string_to_family(u_element[0], cellname)
+        p_family = basix.finite_element.string_to_family(p_element[0], cellname)
+
+        v_el = basix.ufl.element(
+            v_family, cellname, u_element[1], basix.LagrangeVariant.gll_warped,
+            shape=(mesh.geometry.dim,), gdim=mesh.geometry.dim)
+        p_el = basix.ufl.element(
+            p_family, cellname, p_element[1], basix.LagrangeVariant.gll_warped,
+            gdim=mesh.geometry.dim)
 
         # Initialize velocity functions for variational problem
         self._V = _fem.FunctionSpace(mesh, v_el)
