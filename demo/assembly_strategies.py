@@ -134,7 +134,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
         b_d = dolfinx.fem.Function(V)
         with dolfinx.common.Timer(f"~{P} {i} Action strategy") as _:
             dolfinx.fem.petsc.assemble_vector(b_d.vector, lhs)
-            b_d.x.scatter_reverse(dolfinx.la.ScatterMode.add)
+            b_d.x.scatter_reverse(dolfinx.la.InsertMode.add)
             b_d.x.scatter_forward()
         # Compare results
         assert np.allclose(b.x.array, b_d.x.array)

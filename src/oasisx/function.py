@@ -97,7 +97,7 @@ class Projector():
         dolfinx.fem.petsc.assemble_vector(self._b.vector, self._rhs)
         dolfinx.fem.petsc.apply_lifting(
             self._b.vector, [self._lhs], bcs=[self._bcs])
-        self._b.x.scatter_reverse(dolfinx.cpp.la.ScatterMode.add)
+        self._b.x.scatter_reverse(dolfinx.cpp.la.InsertMode.add)
         dolfinx.fem.petsc.set_bc(self._b.vector, self._bcs)
         self._b.x.scatter_forward()
 

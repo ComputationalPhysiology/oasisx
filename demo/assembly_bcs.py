@@ -115,7 +115,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
     oasis_total = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
 
     A_sp = dolfinx.fem.create_sparsity_pattern(mass_form)
-    A_sp.assemble()
+    A_sp.finalize()
 
     A = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp)
     Ax = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp)
@@ -144,7 +144,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         b.x.array[:] = 0
         start_rhs = time.perf_counter()
         A.mult(u_1.vector, b.vector)
-        b.x.scatter_reverse(dolfinx.la.ScatterMode.add)
+        b.x.scatter_reverse(dolfinx.la.InsertMode.add)
         dolfinx.fem.petsc.set_bc(b.vector, bcs)
         b.x.scatter_forward()
         end_rhs = time.perf_counter()
@@ -191,7 +191,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         bx.x.array[:] = 0
         start_rhs_new = time.perf_counter()
         dolfinx.fem.petsc.assemble_vector(bx.vector, rhs_form)
-        bx.x.scatter_reverse(dolfinx.la.ScatterMode.add)
+        bx.x.scatter_reverse(dolfinx.la.InsertMode.add)
         dolfinx.fem.petsc.set_bc(bx.vector, bcs)
         bx.x.scatter_forward()
         end_rhs_new = time.perf_counter()
