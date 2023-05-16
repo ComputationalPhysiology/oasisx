@@ -115,7 +115,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
     oasis_total = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
 
     A_sp = dolfinx.fem.create_sparsity_pattern(mass_form)
-    A_sp.assemble()
+    A_sp.finalize()
 
     A = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp)
     Ax = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp)
