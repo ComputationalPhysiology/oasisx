@@ -325,7 +325,7 @@ class FractionalStep_AB_CN():
         for i in range(len(self._u)):
             self._b0[i].x.set(0.0)
             _fem.petsc.assemble_vector(self._b0[i].vector, self._body_force[i])
-            self._b0[i].x.scatter_reverse(_la.ScatterMode.add)
+            self._b0[i].x.scatter_reverse(_la.InsertMode.add)
 
         if not self._low_memory:
             for i in range(self._mesh.geometry.dim):
@@ -399,7 +399,7 @@ class FractionalStep_AB_CN():
             if hasattr(self, "_p_surf") and self._p_surf[i].rank == 1:  # type: ignore
                 self._wrk_comp.x.set(0)
                 _fem.petsc.assemble_vector(self._wrk_comp.vector, self._p_surf[i])
-                self._wrk_comp.x.scatter_reverse(_la.ScatterMode.add)
+                self._wrk_comp.x.scatter_reverse(_la.InsertMode.add)
                 self._b_first[i].x.array[:] += self._wrk_comp.x.array[:]
 
         # Reset matrix for lhs
@@ -427,7 +427,7 @@ class FractionalStep_AB_CN():
                 self._p_vdxi_Vec[i].x.set(0.)
                 _fem.petsc.assemble_vector(
                     self._p_vdxi_Vec[i].vector, self._p_vdxi[i], coeffs=coeffs, constants=[])
-                self._p_vdxi_Vec[i].x.scatter_reverse(_la.ScatterMode.add)
+                self._p_vdxi_Vec[i].x.scatter_reverse(_la.InsertMode.add)
                 self._p_vdxi_Vec[i].x.scatter_forward()
         else:
             for i in range(self._mesh.geometry.dim):
@@ -476,7 +476,7 @@ class FractionalStep_AB_CN():
                 self._b2.vector.axpy(1, self._wrk_p.vector)
 
         # Apply boundary conditions to the rhs
-        self._b2.x.scatter_reverse(_la.ScatterMode.add)
+        self._b2.x.scatter_reverse(_la.InsertMode.add)
         self._b2.vector.scale(-1/dt)
 
         # Set homogenuous Dirichlet boundary condition on pressure correction
@@ -528,7 +528,7 @@ class FractionalStep_AB_CN():
 
                 self._wrk_comp.x.set(0)
                 _fem.petsc.assemble_vector(self._wrk_comp.vector, self._grad_p[i])
-                self._wrk_comp.x.scatter_reverse(_la.ScatterMode.add)
+                self._wrk_comp.x.scatter_reverse(_la.InsertMode.add)
 
                 # Subtract
                 self._b3.vector.axpy(-dt, self._wrk_comp.vector)
@@ -537,7 +537,7 @@ class FractionalStep_AB_CN():
                 # bcs_u = [bcu._bc for bcu in self._bcs_u[i]]
                 # self._wrk_comp.x.set(0)
                 # _fem.petsc.apply_lifting(self._wrk_comp.vector, [self._mass_Vi], [bcs_u])
-                # self._wrk_comp.x.scatter_reverse(_la.ScatterMode.add)
+                # self._wrk_comp.x.scatter_reverse(_la.InsertMode.add)
 
                 # self._b3.vector.axpy(1, self._wrk_comp.vector)
                 # _fem.petsc.set_bc(self._b3.vector, bcs_u)
@@ -560,7 +560,7 @@ class FractionalStep_AB_CN():
                 # bcs_u = [bcu._bc for bcu in self._bcs_u[i]]
                 # self._wrk_comp.x.set(0)
                 # _fem.petsc.apply_lifting(self._wrk_comp.vector, [self._mass_Vi], [bcs_u])
-                # self._wrk_comp.x.scatter_reverse(_la.ScatterMode.add)
+                # self._wrk_comp.x.scatter_reverse(_la.InsertMode.add)
 
                 # self._b3.vector.axpy(1, self._wrk_comp.vector)
                 # _fem.petsc.set_bc(self._b3.vector, bcs_u)
