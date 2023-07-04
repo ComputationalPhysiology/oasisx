@@ -175,7 +175,7 @@ def test_tentative(low_memory, body_force):
     A = dolfinx.fem.petsc.assemble_matrix(dolfinx.fem.form(a))
     A.assemble()
     for bc in bcs_u[0]:
-        A.zeroRowsLocal(bc.dof_indices()[0], 1.)
+        A.zeroRowsLocal(bc._cpp_object.dof_indices()[0], 1.)
     bs = []
     for i in range(mesh.geometry.dim):
         b = dolfinx.fem.petsc.assemble_vector(dolfinx.fem.form(Ls[i]))

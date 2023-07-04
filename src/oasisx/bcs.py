@@ -70,7 +70,7 @@ class DirichletBC():
     _dofs: npt.NDArray[np.int32]
     _value: Union[np.float64, _fem.Constant, Callable[[
         npt.NDArray[np.float64]], npt.NDArray[np.float64]]]
-    _bc: _fem.DirichletBCMetaClass
+    _bc: _fem.DirichletBC
     _u: Optional[_fem.Function]
 
     __slots__ = tuple(__annotations__)
@@ -186,7 +186,7 @@ class PressureBC():
                   Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]
     _u: _fem.Function
     _rhs: List[ufl.form.Form]
-    _bc: _fem.DirichletBCMetaClass
+    _bc: _fem.DirichletBC
     __slots__ = tuple(__annotations__)
 
     def __init__(self, value: Union[np.float64, _fem.Constant,
@@ -235,9 +235,9 @@ class PressureBC():
             self._u.interpolate(self._value)
 
     @property
-    def bc(self) -> _fem.DirichletBCMetaClass:
+    def bc(self) -> _fem.DirichletBC:
         return self._bc
 
-    def rhs(self, i: int) -> _fem.FormMetaClass:
+    def rhs(self, i: int) -> _fem.Form:
         assert i < len(self._rhs)
         return self._rhs[i]

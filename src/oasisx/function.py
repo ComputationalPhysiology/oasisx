@@ -35,16 +35,16 @@ class Projector():
 
     _A: _petsc.Mat  # The mass matrix
     _b: _petsc.Vec  # The rhs vector
-    _lhs: dolfinx.fem.forms.FormMetaClass  # The compiled form for the mass matrix
-    _rhs: dolfinx.fem.forms.FormMetaClass  # The compiled form form the rhs vector
+    _lhs: dolfinx.fem.forms.Form  # The compiled form for the mass matrix
+    _rhs: dolfinx.fem.forms.Form  # The compiled form form the rhs vector
     _ksp: _petsc.KSP  # The PETSc solver
     _x: dolfinx.fem.Function  # The solution vector
-    _bcs: List[dolfinx.fem.DirichletBCMetaClass]
+    _bcs: List[dolfinx.fem.DirichletBC]
     __slots__ = tuple(__annotations__)
 
     def __init__(self, function: ufl.core.expr.Expr,
                  space: dolfinx.fem.FunctionSpace,
-                 bcs: List[dolfinx.fem.DirichletBCMetaClass],
+                 bcs: List[dolfinx.fem.DirichletBC],
                  petsc_options: Optional[dict] = None,
                  jit_options: Optional[dict] = None,
                  form_compiler_options: Optional[dict] = None,
