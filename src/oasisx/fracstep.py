@@ -344,7 +344,8 @@ class FractionalStep_AB_CN():
         # Create mass matrix with symmetrically applied bcs
         self._M_bcs = self._M.copy()
         for bcu in self._bcs_u[0]:
-            self._M_bcs.zeroRowsColumnsLocal(bcu._bc._cpp_object.dof_indices()[0], 1.)  # type: ignore
+            self._M_bcs.zeroRowsColumnsLocal(
+                bcu._bc._cpp_object.dof_indices()[0], 1.)  # type: ignore
 
     def assemble_first(self, dt: float, nu: float):
         """
