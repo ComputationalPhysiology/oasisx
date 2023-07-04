@@ -59,7 +59,7 @@ class FractionalStep_AB_CN():
     _Q: _fem.FunctionSpace  # Pressure function space
 
     # Mass matrix for velocity component
-    _mass_Vi: _fem.FormMetaClass
+    _mass_Vi: _fem.Form
     _M: _PETSc.Mat
 
     # Boundary conditions
@@ -80,22 +80,22 @@ class FractionalStep_AB_CN():
     _solver_u: KSPSolver
 
     # Adams-Bashforth convection term
-    _conv_Vi: _fem.FormMetaClass
+    _conv_Vi: _fem.Form
     _uab: List[_fem.Function]  # Explicit part of Adam Bashforth convection term
 
     # Stiffness matrix for velocity compoenent
-    _stiffness_Vi: _fem.FormMetaClass
+    _stiffness_Vi: _fem.Form
     _K: _PETSc.Mat
 
-    _p_vdxi: List[_fem.FormMetaClass]  # Volume contributions of tentative pressure to RHS
+    _p_vdxi: List[_fem.Form]  # Volume contributions of tentative pressure to RHS
     _p_vdxi_Mat: List[_PETSc.Mat]
     _p_vdxi_Vec: List[_PETSc.Vec]  # Low memory version
 
     # Body forces
     _b0: List[_fem.Function]
-    _body_force: List[_fem.FormMetaClass]
+    _body_force: List[_fem.Form]
     _b_first: List[_fem.Function]  # RHS consisting of all variables from previous time step
-    _p_surf: List[_fem.FormMetaClass]  # Surface terms for pressure at outlets at t-1/2
+    _p_surf: List[_fem.Form]  # Surface terms for pressure at outlets at t-1/2
 
     # Working arrays
     _wrk_vel: List[_fem.Function]  # Working arrays for velocity space
@@ -111,8 +111,8 @@ class FractionalStep_AB_CN():
     _b2: _fem.Function  # Function for holding RHS of pressure correction
 
     _solver_p: KSPSolver
-    _stiffness_Q: _fem.FormMetaClass  # Compiled form for pressure Laplacian
-    _p_rhs: List[_fem.FormMetaClass]  # List of rhs for pressure correction
+    _stiffness_Q: _fem.Form  # Compiled form for pressure Laplacian
+    _p_rhs: List[_fem.Form]  # List of rhs for pressure correction
     _divu_Mat: List[_PETSc.Mat]  # Matrices for non-low memory version of RHS assembly
     _Ap: _PETSc.Mat  # Pressure Laplacian
     _wrk_p: _fem.Function  # Working vector for matrix vector    products in non-low memory version
@@ -121,7 +121,7 @@ class FractionalStep_AB_CN():
     _solver_c: KSPSolver
 
     # grad_i(phi) v_i operator
-    _grad_p: List[_fem.FormMetaClass]
+    _grad_p: List[_fem.Form]
     _grad_p_Mat: List[_PETSc.Mat]
     _grad_p_Vec: List[_PETSc.Vec]  # Low memory version
     _b3: _fem.Function
@@ -344,7 +344,7 @@ class FractionalStep_AB_CN():
         # Create mass matrix with symmetrically applied bcs
         self._M_bcs = self._M.copy()
         for bcu in self._bcs_u[0]:
-            self._M_bcs.zeroRowsColumnsLocal(bcu._bc.dof_indices()[0], 1.)  # type: ignore
+            self._M_bcs.zeroRowsColumnsLocal(bcu._bc._cpp_object.dof_indices()[0], 1.)  # type: ignore
 
     def assemble_first(self, dt: float, nu: float):
         """
@@ -407,7 +407,7 @@ class FractionalStep_AB_CN():
         self._A.axpy(2./dt, self._M,  _PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
         # NOTE: This would not work if we have different DirichletBCs on different components
         for bcu in self._bcs_u[0]:
-            self._A.zeroRowsLocal(bcu._bc.dof_indices()[0], 1.)  # type: ignore
+            self._A.zeroRowsLocal(bcu._bc._cpp_object.dof_indices()[0], 1.)  # type: ignore
 
     def velocity_tentative_assemble(self):
         """
@@ -422,7 +422,7 @@ class FractionalStep_AB_CN():
         """
         if self._low_memory:
             # Using the fact that all the gradient forms has the same coefficient
-            coeffs = _cpp.fem.pack_coefficients(self._p_vdxi[0])
+            coeffs = _cpp.fem.pack_coefficients(self._p_vdxi[0]._cpp_object)
             for i in range(self._mesh.geometry.dim):
                 self._p_vdxi_Vec[i].x.set(0.)
                 _fem.petsc.assemble_vector(
