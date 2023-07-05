@@ -6,6 +6,7 @@
 # Tests for DirichletBC wrapper
 
 import dolfinx
+import dolfinx.fem.petsc
 import numpy as np
 import pytest
 import ufl
@@ -199,11 +200,11 @@ def test_pressure_condition(P):
     dofs = dolfinx.fem.locate_dofs_topological(Q, mesh.topology.dim-1, et.find(value))
     bc_ex = dolfinx.fem.dirichletbc(0., dofs, Q)
     r = dolfinx.fem.Function(Q)
-    r.x.set(10)
+    r.x.array[:] = 10
     dolfinx.fem.petsc.set_bc(r.vector, [bc_ex])
 
     s = dolfinx.fem.Function(Q)
-    s.x.set(10)
+    s.x.array[:] = 10
     dolfinx.fem.petsc.set_bc(s.vector, [bc.bc])
 
     assert np.allclose(r.x.array, s.x.array)

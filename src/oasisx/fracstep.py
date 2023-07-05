@@ -9,6 +9,7 @@ import numpy as np
 import numpy.typing as npt
 import ufl
 import basix
+import dolfinx.fem.petsc as _petsc
 from dolfinx import cpp as _cpp
 from dolfinx import fem as _fem
 from dolfinx import la as _la
@@ -242,13 +243,13 @@ class FractionalStep_AB_CN():
 
         # Mass matrix for velocity component
         self._mass_Vi = _fem.form(u*v*dx, jit_options=jit_options)
-        self._M = _fem.petsc.create_matrix(self._mass_Vi)
-        self._A = _fem.petsc.create_matrix(self._mass_Vi)
+        self._M = _petsc.create_matrix(self._mass_Vi)
+        self._A = _petsc.create_matrix(self._mass_Vi)
 
         # Stiffness matrix for velocity component
         self._stiffness_Vi = _fem.form(ufl.inner(ufl.grad(u), ufl.grad(v))*dx,
                                        jit_options=jit_options)
-        self._K = _fem.petsc.create_matrix(self._stiffness_Vi)
+        self._K = _petsc.create_matrix(self._stiffness_Vi)
 
         # Pressure contribution
         p = ufl.TrialFunction(self._Q)
@@ -259,7 +260,7 @@ class FractionalStep_AB_CN():
         else:
             self._p_vdxi = [_fem.form(p*v.dx(i)*dx, jit_options=jit_options)
                             for i in range(self._mesh.geometry.dim)]
-            self._p_vdxi_Mat = [_fem.petsc.create_matrix(grad_p) for grad_p in self._p_vdxi]
+            self._p_vdxi_Mat = [_petsc.create_matrix(grad_p) for grad_p in self._p_vdxi]
 
         # -----------------Pressure currection step----------------------
 
@@ -267,7 +268,7 @@ class FractionalStep_AB_CN():
         q = ufl.TestFunction(self._Q)
         self._stiffness_Q = _fem.form(ufl.inner(ufl.grad(p), ufl.grad(q))*ufl.dx,
                                       jit_options=jit_options)
-        self._Ap = _fem.petsc.create_matrix(self._stiffness_Q)
+        self._Ap = _petsc.create_matrix(self._stiffness_Q)
 
         # RHS for pressure correction (unscaled)
         if self._low_memory:
@@ -275,7 +276,7 @@ class FractionalStep_AB_CN():
         else:
             self._p_rhs = [_fem.form(u.dx(i)*q*dx, jit_options=jit_options)
                            for i in range(self._mesh.geometry.dim)]
-            self._divu_Mat = [_fem.petsc.create_matrix(rhs) for rhs in self._p_rhs]
+            self._divu_Mat = [_petsc.create_matrix(rhs) for rhs in self._p_rhs]
             self._wrk_p = _fem.Function(self._Q)
 
         # ---------------------------Velocity update-----------------------
@@ -287,7 +288,7 @@ class FractionalStep_AB_CN():
         else:
             self._grad_p = [_fem.form(p.dx(i)*v*dx, jit_options=jit_options)
                             for i in range(self._mesh.geometry.dim)]
-            self._grad_p_Mat = [_fem.petsc.create_matrix(grad_p) for grad_p in self._grad_p]
+            self._grad_p_Mat = [_petsc.create_matrix(grad_p) for grad_p in self._grad_p]
 
         # Convection term for Adams Bashforth step
         self._conv_Vi = _fem.form(ufl.inner(ufl.dot(ufl.as_vector(self._uab),
@@ -307,13 +308,13 @@ class FractionalStep_AB_CN():
         6. Divergence term in pressure correction
         7. Pressure contribution in velocity update (if low memory is turned of)
         """
-        _fem.petsc.assemble_matrix(self._M, self._mass_Vi)
+        _petsc.assemble_matrix(self._M, self._mass_Vi)
         self._M.assemble()
-        _fem.petsc.assemble_matrix(self._K, self._stiffness_Vi)
+        _petsc.assemble_matrix(self._K, self._stiffness_Vi)
         self._K.assemble()
 
         # Assemble stiffness matrix with boundary conditions
-        _fem.petsc.assemble_matrix(self._Ap, self._stiffness_Q, bcs=[
+        _petsc.assemble_matrix(self._Ap, self._stiffness_Q, bcs=[
             bc._bc for bc in self._bcs_p])
         self._Ap.assemble()
         if len(self._bcs_p) == 0:
@@ -323,22 +324,22 @@ class FractionalStep_AB_CN():
 
         # Assemble constant body forces
         for i in range(len(self._u)):
-            self._b0[i].x.set(0.0)
-            _fem.petsc.assemble_vector(self._b0[i].vector, self._body_force[i])
+            self._b0[i].x.array[:] = 0.0
+            _petsc.assemble_vector(self._b0[i].vector, self._body_force[i])
             self._b0[i].x.scatter_reverse(_la.InsertMode.add)
 
         if not self._low_memory:
             for i in range(self._mesh.geometry.dim):
                 # Preassemble tentative velocity matrix
-                _fem.petsc.assemble_matrix(self._p_vdxi_Mat[i], self._p_vdxi[i])
+                _petsc.assemble_matrix(self._p_vdxi_Mat[i], self._p_vdxi[i])
                 self._p_vdxi_Mat[i].assemble()
 
                 # Assemble pressure RHS matrices
-                _fem.petsc.assemble_matrix(self._grad_p_Mat[i], self._grad_p[i])
+                _petsc.assemble_matrix(self._grad_p_Mat[i], self._grad_p[i])
                 self._grad_p_Mat[i].assemble()
 
                 # Preassemble u.dx(i)q
-                _fem.petsc.assemble_matrix(self._divu_Mat[i], self._p_rhs[i])
+                _petsc.assemble_matrix(self._divu_Mat[i], self._p_rhs[i])
                 self._divu_Mat[i].assemble()
 
         # Create mass matrix with symmetrically applied bcs
@@ -369,10 +370,10 @@ class FractionalStep_AB_CN():
         """
         # Update explicit part of Adam-Bashforth approximation with previous time step
         for i, (u_ab, u_1, u_2) in enumerate(zip(self._uab, self._u1, self._u2)):
-            u_ab.x.set(0)
+            u_ab.x.array[:] = 0
             u_ab.x.array[:] = 1.5 * u_1.x.array - 0.5 * u_2.x.array
         self._A.zeroEntries()
-        _fem.petsc.assemble_matrix(self._A, a=self._conv_Vi)  # type: ignore
+        _petsc.assemble_matrix(self._A, a=self._conv_Vi)  # type: ignore
         self._A.assemble()
         self._A.scale(-0.5)  # Negative convection on the rhs
         self._A.axpy(1./dt, self._M, _PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
@@ -386,7 +387,7 @@ class FractionalStep_AB_CN():
 
         # Compute rhs for all velocity components
         for i, _ in enumerate(self._u):
-            self._b_first[i].x.set(0)
+            self._b_first[i].x.array[:] = 0
             # Start with transient convection and difffusion
             self._A.mult(self._u1[i].vector, self._wrk_comp.vector)
             self._wrk_comp.x.scatter_forward()
@@ -398,8 +399,8 @@ class FractionalStep_AB_CN():
 
             # Add pressure contribution
             if hasattr(self, "_p_surf") and self._p_surf[i].rank == 1:  # type: ignore
-                self._wrk_comp.x.set(0)
-                _fem.petsc.assemble_vector(self._wrk_comp.vector, self._p_surf[i])
+                self._wrk_comp.x.array[:] = 0
+                _petsc.assemble_vector(self._wrk_comp.vector, self._p_surf[i])
                 self._wrk_comp.x.scatter_reverse(_la.InsertMode.add)
                 self._b_first[i].x.array[:] += self._wrk_comp.x.array[:]
 
@@ -425,14 +426,14 @@ class FractionalStep_AB_CN():
             # Using the fact that all the gradient forms has the same coefficient
             coeffs = _cpp.fem.pack_coefficients(self._p_vdxi[0]._cpp_object)
             for i in range(self._mesh.geometry.dim):
-                self._p_vdxi_Vec[i].x.set(0.)
-                _fem.petsc.assemble_vector(
+                self._p_vdxi_Vec[i].x.array[:] = 0.
+                _petsc.assemble_vector(
                     self._p_vdxi_Vec[i].vector, self._p_vdxi[i], coeffs=coeffs, constants=[])
                 self._p_vdxi_Vec[i].x.scatter_reverse(_la.InsertMode.add)
                 self._p_vdxi_Vec[i].x.scatter_forward()
         else:
             for i in range(self._mesh.geometry.dim):
-                self._p_vdxi_Vec[i].x.set(0.)
+                self._p_vdxi_Vec[i].x.array[:] = 0.
                 self._p_vdxi_Mat[i].mult(self._ps.vector, self._p_vdxi_Vec[i].vector)
                 self._p_vdxi_Vec[i].x.scatter_forward()
 
@@ -468,9 +469,9 @@ class FractionalStep_AB_CN():
             b_c = \\int_{\\Omega} \\mathrm{div} u^l q~\\mathrm{d}x.
 
         """
-        self._b2.x.set(0.)
+        self._b2.x.array[:] = 0.
         if self._low_memory:
-            _fem.petsc.assemble_vector(self._b2.vector, self._p_rhs[0])
+            _petsc.assemble_vector(self._b2.vector, self._p_rhs[0])
         else:
             for i in range(self._mesh.geometry.dim):
                 self._divu_Mat[i].mult(self._u[i].vector, self._wrk_p.vector)
@@ -482,7 +483,7 @@ class FractionalStep_AB_CN():
 
         # Set homogenuous Dirichlet boundary condition on pressure correction
         bc_p = [bc._bc for bc in self._bcs_p]
-        _fem.petsc.set_bc(self._b2.vector, bc_p)
+        _petsc.set_bc(self._b2.vector, bc_p)
         self._b2.x.scatter_forward()
 
     def pressure_solve(self) -> np.int32:
@@ -527,8 +528,8 @@ class FractionalStep_AB_CN():
                 # Compute M u^{n-1}
                 self._M.mult(self._u[i].vector, self._b3.vector)
 
-                self._wrk_comp.x.set(0)
-                _fem.petsc.assemble_vector(self._wrk_comp.vector, self._grad_p[i])
+                self._wrk_comp.x.array[:] = 0.
+                _petsc.assemble_vector(self._wrk_comp.vector, self._grad_p[i])
                 self._wrk_comp.x.scatter_reverse(_la.InsertMode.add)
 
                 # Subtract
@@ -536,12 +537,12 @@ class FractionalStep_AB_CN():
 
                 # Set bcs
                 # bcs_u = [bcu._bc for bcu in self._bcs_u[i]]
-                # self._wrk_comp.x.set(0)
-                # _fem.petsc.apply_lifting(self._wrk_comp.vector, [self._mass_Vi], [bcs_u])
+                # self._wrk_comp.x.array[:] = 0
+                # _petsc.apply_lifting(self._wrk_comp.vector, [self._mass_Vi], [bcs_u])
                 # self._wrk_comp.x.scatter_reverse(_la.InsertMode.add)
 
                 # self._b3.vector.axpy(1, self._wrk_comp.vector)
-                # _fem.petsc.set_bc(self._b3.vector, bcs_u)
+                # _petsc.set_bc(self._b3.vector, bcs_u)
                 self._b3.x.scatter_forward()
 
                 errors[i] = self._solver_c.solve(self._b3.vector, self._u[i])
@@ -551,7 +552,7 @@ class FractionalStep_AB_CN():
                 self._M.mult(self._u[i].vector, self._b3.vector)
 
                 # Compute dphi/dx_i vi dx
-                self._wrk_comp.x.set(0)
+                self._wrk_comp.x.array[:] = 0.
                 self._grad_p_Mat[i].mult(self._dp.vector, self._wrk_comp.vector)
 
                 # Subtract
@@ -559,12 +560,12 @@ class FractionalStep_AB_CN():
 
                 # Set bcs
                 # bcs_u = [bcu._bc for bcu in self._bcs_u[i]]
-                # self._wrk_comp.x.set(0)
-                # _fem.petsc.apply_lifting(self._wrk_comp.vector, [self._mass_Vi], [bcs_u])
+                # self._wrk_comp.x.array[:] = 0.
+                # _petsc.apply_lifting(self._wrk_comp.vector, [self._mass_Vi], [bcs_u])
                 # self._wrk_comp.x.scatter_reverse(_la.InsertMode.add)
 
                 # self._b3.vector.axpy(1, self._wrk_comp.vector)
-                # _fem.petsc.set_bc(self._b3.vector, bcs_u)
+                # _petsc.set_bc(self._b3.vector, bcs_u)
                 self._b3.x.scatter_forward()
                 errors[i] = self._solver_c.solve(self._b3.vector, self._u[i])
 

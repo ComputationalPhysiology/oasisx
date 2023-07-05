@@ -93,7 +93,7 @@ class Projector():
         """
         Update RHS by re-assembling
         """
-        self._b.x.set(0.)
+        self._b.x.array[:] = 0.
         dolfinx.fem.petsc.assemble_vector(self._b.vector, self._rhs)
         dolfinx.fem.petsc.apply_lifting(
             self._b.vector, [self._lhs], bcs=[self._bcs])
