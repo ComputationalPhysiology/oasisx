@@ -26,17 +26,22 @@
 # We start by importing the necessary modules
 #
 
+# +
 # This is a test to check notebooks
-import matplotlib.pyplot as plt
 import time
-import seaborn
-import pandas
+import typing
+
 import dolfinx
+import dolfinx.fem.petsc
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas
+import seaborn
+import ufl
 from mpi4py import MPI
 from petsc4py import PETSc
-import ufl
-import numpy as np
-import typing
+
+# -
 
 
 def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = None):

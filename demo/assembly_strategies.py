@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.14.1
+#       jupytext_version: 1.14.6
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -29,11 +29,12 @@
 import seaborn
 import pandas
 import dolfinx
+import dolfinx.fem.petsc
+from typing import Optional
 from mpi4py import MPI
 from petsc4py import PETSc
 import ufl
 import numpy as np
-from typing import Optional
 
 
 # We define a function, that takes in a mesh, the order `P` of the Lagrange function space for the
@@ -53,7 +54,7 @@ from typing import Optional
 # as we are not solving a full problem here.
 
 def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
-    V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", int(P)))
+    V = dolfinx.fem.FunctionSpace(mesh, ("CG", int(P)))
     dt = 0.5
     nu = 0.3
     u = ufl.TrialFunction(V)
@@ -145,8 +146,6 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
         t_matvec[i, :] = mesh.comm.allgather(matvec[1])
         t_action[i, :] = mesh.comm.allgather(action[1])
 
-    M.destroy()
-    K.destroy()
     return V.dofmap.index_map_bs * V.dofmap.index_map.size_global, t_matvec, t_action
 
 
