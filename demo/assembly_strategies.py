@@ -30,6 +30,7 @@ import seaborn
 import pandas
 import dolfinx
 import dolfinx.fem.petsc
+from typing import Optional
 from mpi4py import MPI
 from petsc4py import PETSc
 import ufl
@@ -52,7 +53,7 @@ import numpy as np
 # We add some arbitrary data to the variables `dt`, `nu`, `u_1` and `u_ab`,
 # as we are not solving a full problem here.
 
-def assembly(mesh, P: int, repeats: int, jit_options: dict = None):
+def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
     V = dolfinx.fem.FunctionSpace(mesh, ("CG", int(P)))
     dt = 0.5
     nu = 0.3
