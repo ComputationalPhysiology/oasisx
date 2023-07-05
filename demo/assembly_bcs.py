@@ -43,6 +43,7 @@ from petsc4py import PETSc
 
 # -
 
+
 def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = None):
     V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", int(P)))
 
@@ -226,7 +227,6 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
     return num_dofs_global, new_lhs, new_rhs, oasis_lhs, oasis_rhs, oasis_total, new_total
 
 
-
 # We solve the problem on a unit cube that is split into tetrahedra with `Nx`,`Ny` and `Nx`
 # tetrahedra in the x, y and z-direction respectively.
 
@@ -281,7 +281,6 @@ def run_parameter_sweep(Nx: int, Ny: int, Nz: int, repeats: int, min_degree: int
     return results
 
 
-
 # We use `pandas` and `seaborn` to visualize the results
 
 # +
@@ -317,11 +316,9 @@ def create_plot(results: dict, outfile: str):
         plt.savefig(f"{outfile}_total.png")
 
 
-
 # -
 # We start by running the comparison for an increasing number of degrees of freedom on a fixed grid.
 if __name__ == "__main__":
     N = 40
     results_p = run_parameter_sweep(N, N, N, repeats=3, min_degree=1, max_degree=3)
     create_plot(results_p, "results")
-
