@@ -1,11 +1,11 @@
 [build-system] # Require setuptool version due to https://github.com/pypa/setuptools/issues/2938
-requires = ["setuptools>=61.0.0", "wheel"]
+requires = ["setuptools>=64.4.0", "wheel"]
 
 
 [project]
 name = "OasisX"
 authors = [{ name = "Jørgen S. Dokken", email = "dokken@simula.no" }]
-version = "1.0.0"                                                     # Version number
+version = "1.0.0"
 description = "A modern implementation of Oasis"
 readme = "README.md"
 requires-python = ">=3.8"
