@@ -6,7 +6,7 @@
 
 from enum import Enum
 from typing import Callable, Optional, Tuple, Union, List
-
+from dolfinx import default_scalar_type
 import dolfinx.fem as _fem
 import dolfinx.mesh as _dmesh
 import numpy as np
@@ -94,7 +94,7 @@ class DirichletBC():
     def set_dofs(self, dofs: npt.NDArray[np.int32]):
         self._dofs = dofs
 
-    def _locate_dofs(self, V: _fem.FunctionSpace):
+    def _locate_dofs(self, V: _fem.FunctionSpaceBase):
         """
         Locate all dofs satisfying the criterion
         """
@@ -103,7 +103,7 @@ class DirichletBC():
         elif self._method == LocatorMethod.TOPOLOGICAL:
             self._dofs = _fem.locate_dofs_topological(V, self._e_dim, self._entities)
 
-    def create_bc(self, V: _fem.FunctionSpace):
+    def create_bc(self, V: _fem.FunctionSpaceBase):
         """
 
         """
@@ -124,7 +124,7 @@ class DirichletBC():
         if hasattr(self, "_u"):
             self._u.interpolate(self._value)
 
-    def apply(self, x: _PETSc.Vec):
+    def apply(self, x: _PETSc.Vec):  # type: ignore
         """
         Apply boundary condition to a PETSc vector
         """
@@ -195,7 +195,7 @@ class PressureBC():
         self._subdomain_data, self._subdomain_id = marker
         self._value = value
 
-    def create_bcs(self, V: _fem.FunctionSpace, Q: _fem.FunctionSpace):
+    def create_bcs(self, V: _fem.FunctionSpaceBase, Q: _fem.FunctionSpaceBase):
         """
         Create boundary conditions for the pressure conditions for a given velocity and
         pressure function space
@@ -225,7 +225,7 @@ class PressureBC():
         # Create homogenuous boundary condition for pressure correction eq
         boundary_facets = self._subdomain_data.find(self._subdomain_id)  # type: ignore
         dofs = _fem.locate_dofs_topological(Q, mesh.topology.dim-1, boundary_facets)
-        self._bc = _fem.dirichletbc(_PETSc.ScalarType(0.), dofs, Q)
+        self._bc = _fem.dirichletbc(default_scalar_type(0.), dofs, Q)
 
     def update_bc(self):
         """

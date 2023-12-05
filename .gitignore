@@ -131,3 +131,11 @@ dmypy.json
 _build/
 *.xdmf
 *.h5
+
+
+# Images
+*.png
+
+# Vscode workspace
+*.code-workspace
+.vscode/

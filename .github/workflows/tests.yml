@@ -6,17 +6,17 @@ on:
   pull_request:
     branches:
       - main
-  
+
 env:
   DEB_PYTHON_INSTALL_LAYOUT: deb_system
-    
+
 jobs:
   test-code:
-    runs-on:  ubuntu-22.04
-    container: dolfinx/dolfinx:nightly
+    runs-on: ubuntu-22.04
+    container: ghcr.io/fenics/dolfinx/dolfinx:stable
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: "Install oasisx"
         run: python3 -m pip install .[test,docs]
@@ -27,7 +27,7 @@ jobs:
       - name: "Run demos"
         run: |
           python3 demo/taylor_green.py  -N 8 -N 16 -N 32 -dt=0.005
-          python3 demo/assembly_strategies.py 
+          python3 demo/assembly_strategies.py
 
       - name: Upload coverage report as artifact
         uses: actions/upload-artifact@v3

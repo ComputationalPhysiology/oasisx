@@ -27,7 +27,6 @@ from mpi4py import MPI
 import logging
 import oasisx
 import argparse
-from petsc4py import PETSc
 import numpy.typing as npt
 from typing import List
 
@@ -37,11 +36,11 @@ class U():
         self.t = t
         self.nu = nu
 
-    def eval_x(self, x: npt.NDArray[np.float64]) -> npt.NDArray[PETSc.ScalarType]:
+    def eval_x(self, x: npt.NDArray[np.float64]) -> npt.NDArray[dolfinx.default_scalar_type]:
         return - np.cos(np.pi * x[0]) * np.sin(np.pi * x[1]) \
             * np.exp(-2.0 * self.nu * np.pi**2 * float(self.t))
 
-    def eval_y(self, x: npt.NDArray[np.float64]) -> npt.NDArray[PETSc.ScalarType]:
+    def eval_y(self, x: npt.NDArray[np.float64]) -> npt.NDArray[dolfinx.default_scalar_type]:
         return np.cos(np.pi * x[1]) * np.sin(np.pi * x[0]) \
             * np.exp(-2.0 * self.nu * np.pi**2 * float(self.t))
 
@@ -98,8 +97,8 @@ for n, N in enumerate(inputs.Ns):
     sort = np.argsort(facets)
     facet_tags = dolfinx.mesh.meshtags(mesh, dim, facets[sort], values[sort])
 
-    u_time = dolfinx.fem.Constant(mesh, PETSc.ScalarType(T_start))
-    p_time = dolfinx.fem.Constant(mesh, PETSc.ScalarType(T_start-dt/2.))
+    u_time = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(T_start))
+    p_time = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(T_start-dt/2.))
     u_ex = U(t=u_time, nu=nu)
 
     bcx = oasisx.DirichletBC(u_ex.eval_x, oasisx.LocatorMethod.TOPOLOGICAL, (facet_tags, value))

@@ -6,6 +6,7 @@
 from oasisx import Projector
 
 import dolfinx
+import basix.ufl
 import ufl
 from mpi4py import MPI
 import numpy as np
@@ -20,7 +21,9 @@ def test_projector():
     u.interpolate(lambda x: x[0]*x[0]+3*x[1]+2*x[1]*x[1])
 
     # Create gradient projector
-    W = dolfinx.fem.VectorFunctionSpace(mesh, ("DG", 1))
+    el = basix.ufl.element("DG", mesh.topology.cell_name(), 1,
+                           shape=(mesh.geometry.dim, ), gdim=mesh.geometry.dim)
+    W = dolfinx.fem.FunctionSpace(mesh, el)
     petsc_options = {"ksp_type": "preonly", "pc_type": "lu",
                      "pc_factor_mat_solver_type": "mumps"}
     gradient_projector = Projector(ufl.grad(u), W, [], petsc_options=petsc_options)

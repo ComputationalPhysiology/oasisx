@@ -55,13 +55,13 @@ class FractionalStep_AB_CN():
     _sol_u: _fem.Function  # Tentative velocity as vector function (for outputting)
 
     # Velocity component and mapping to parent space
-    _Vi: List[Tuple[_fem.FunctionSpace, npt.NDArray[np.int32]]]
-    _V: _fem.FunctionSpace  # Velocity function space
-    _Q: _fem.FunctionSpace  # Pressure function space
+    _Vi: List[Tuple[_fem.FunctionSpaceBase, npt.NDArray[np.int32]]]
+    _V: _fem.FunctionSpaceBase  # Velocity function space
+    _Q: _fem.FunctionSpaceBase  # Pressure function space
 
     # Mass matrix for velocity component
     _mass_Vi: _fem.Form
-    _M: _PETSc.Mat
+    _M: _PETSc.Mat  # type: ignore
 
     # Boundary conditions
     _bcs_u: List[List[DirichletBC]]
@@ -76,7 +76,7 @@ class FractionalStep_AB_CN():
     _ps: _fem.Function  # Tentative pressure
 
     # Linear algebra structures structures
-    _A: _PETSc.Mat
+    _A: _PETSc.Mat  # type: ignore
     _rhs1: List[_fem.Function]  # RHS for each component of the tentative velocity
     _solver_u: KSPSolver
 
@@ -86,11 +86,12 @@ class FractionalStep_AB_CN():
 
     # Stiffness matrix for velocity compoenent
     _stiffness_Vi: _fem.Form
-    _K: _PETSc.Mat
+    _K: _PETSc.Mat  # type: ignore
 
     _p_vdxi: List[_fem.Form]  # Volume contributions of tentative pressure to RHS
-    _p_vdxi_Mat: List[_PETSc.Mat]
-    _p_vdxi_Vec: List[_PETSc.Vec]  # Low memory version
+    _p_vdxi_Mat: List[_PETSc.Mat]  # type: ignore
+    # Low memory version
+    _p_vdxi_Vec: List[_PETSc.Vec]  # type: ignore
 
     # Body forces
     _b0: List[_fem.Function]
@@ -114,8 +115,10 @@ class FractionalStep_AB_CN():
     _solver_p: KSPSolver
     _stiffness_Q: _fem.Form  # Compiled form for pressure Laplacian
     _p_rhs: List[_fem.Form]  # List of rhs for pressure correction
-    _divu_Mat: List[_PETSc.Mat]  # Matrices for non-low memory version of RHS assembly
-    _Ap: _PETSc.Mat  # Pressure Laplacian
+    # Matrices for non-low memory version of RHS assembly
+    _divu_Mat: List[_PETSc.Mat]  # type: ignore
+    # Pressure Laplacian
+    _Ap: _PETSc.Mat  # type: ignore
     _wrk_p: _fem.Function  # Working vector for matrix vector    products in non-low memory version
 
     # ----------------------Velocity update-------------------------------------
@@ -123,10 +126,12 @@ class FractionalStep_AB_CN():
 
     # grad_i(phi) v_i operator
     _grad_p: List[_fem.Form]
-    _grad_p_Mat: List[_PETSc.Mat]
-    _grad_p_Vec: List[_PETSc.Vec]  # Low memory version
+    _grad_p_Mat: List[_PETSc.Mat]   # type: ignore
+    # Low memory version
+    _grad_p_Vec: List[_PETSc.Vec]   # type: ignore
     _b3: _fem.Function
-    _M_bcs: _PETSc.Mat  # Mass matrix with bcs applied
+    # Mass matrix with bcs applied
+    _M_bcs: _PETSc.Mat   # type: ignore
 
     # Annotate all functions
     # __slots__ = tuple(__annotations__)
@@ -376,10 +381,10 @@ class FractionalStep_AB_CN():
         _petsc.assemble_matrix(self._A, a=self._conv_Vi)  # type: ignore
         self._A.assemble()
         self._A.scale(-0.5)  # Negative convection on the rhs
-        self._A.axpy(1./dt, self._M, _PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
+        self._A.axpy(1./dt, self._M, _PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
 
         # Add diffusion
-        self._A.axpy(-0.5*nu, self._K, _PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
+        self._A.axpy(-0.5*nu, self._K, _PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
 
         # Update Pressure BC
         for bc in self._bcs_p:
@@ -406,7 +411,7 @@ class FractionalStep_AB_CN():
 
         # Reset matrix for lhs
         self._A.scale(-1)
-        self._A.axpy(2./dt, self._M,  _PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
+        self._A.axpy(2./dt, self._M,  _PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
         # NOTE: This would not work if we have different DirichletBCs on different components
         for bcu in self._bcs_u[0]:
             self._A.zeroRowsLocal(bcu._bc._cpp_object.dof_indices()[0], 1.)  # type: ignore
@@ -457,7 +462,7 @@ class FractionalStep_AB_CN():
             errors[i] = self._solver_u.solve(self._rhs1[i].vector, self._u[i])
             # Compute difference from last inner iter
             self._wrk_comp.vector.axpy(-1, self._u[i].vector)
-            diff += self._wrk_comp.vector.norm(_PETSc.NormType.NORM_2)
+            diff += self._wrk_comp.vector.norm(_PETSc.NormType.NORM_2)  # type: ignore
         return diff, errors
 
     def pressure_assemble(self, dt: float):

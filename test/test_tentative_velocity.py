@@ -17,7 +17,9 @@ from petsc4py import PETSc
 from oasisx import DirichletBC, FractionalStep_AB_CN, LocatorMethod, PressureBC
 
 
-def gather_PETScMatrix(A: PETSc.Mat, comm: MPI.Comm, root=0) -> scipy.sparse.csr_matrix:
+def gather_PETScMatrix(A: PETSc.Mat,  # type: ignore
+                       comm: MPI.Comm,
+                       root: int = 0) -> scipy.sparse.csr_matrix:
     """
     Given a distributed PETSc matrix, gather in on process 'root' in
     a scipy CSR matrix

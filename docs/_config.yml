@@ -29,11 +29,12 @@ parse:
 sphinx:
   config:
     html_last_updated_fmt: "%b %d, %Y"
+    nb_execution_show_tb: True
 
   extra_extensions:
-  - 'sphinx.ext.autodoc'
-  - 'sphinx.ext.napoleon'
-  - 'sphinx.ext.viewcode'
+    - "sphinx.ext.autodoc"
+    - "sphinx.ext.napoleon"
+    - "sphinx.ext.viewcode"
 
 bibtex_bibfiles:
   - "references.bib"
