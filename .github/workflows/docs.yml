@@ -14,7 +14,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    container: ghcr.io/fenics/dolfinx/dolfinx:stable
+    container: ghcr.io/fenics/dolfinx/dolfinx:nightly
 
     steps:
       - name: Checkout
