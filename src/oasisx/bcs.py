@@ -94,16 +94,17 @@ class DirichletBC():
     def set_dofs(self, dofs: npt.NDArray[np.int32]):
         self._dofs = dofs
 
-    def _locate_dofs(self, V: _fem.FunctionSpaceBase):
+    def _locate_dofs(self, V: _fem.FunctionSpace):
         """
         Locate all dofs satisfying the criterion
         """
         if self._method == LocatorMethod.GEOMETRICAL:
             self._dofs = _fem.locate_dofs_geometrical(V, self._locator)  # type:ignore
         elif self._method == LocatorMethod.TOPOLOGICAL:
+            V.mesh.topology.create_connectivity(self._e_dim, V.mesh.topology.dim)
             self._dofs = _fem.locate_dofs_topological(V, self._e_dim, self._entities)
 
-    def create_bc(self, V: _fem.FunctionSpaceBase):
+    def create_bc(self, V: _fem.FunctionSpace):
         """
 
         """
@@ -173,7 +174,7 @@ class PressureBC():
             mt  = dolfinx.fem.meshtags(mesh, mesh.topology.dim-1, entities, values)
             bc = PressureBC(p,  (mt, 2))
 
-            Q = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 1))
+            Q = dolfinx.fem.functionspace(mesh, ("Lagrange", 1))
             # Create appropriate structures for assigning bcs
             bc.create_bc(Q)
             # Update time in bc
@@ -195,7 +196,7 @@ class PressureBC():
         self._subdomain_data, self._subdomain_id = marker
         self._value = value
 
-    def create_bcs(self, V: _fem.FunctionSpaceBase, Q: _fem.FunctionSpaceBase):
+    def create_bcs(self, V: _fem.FunctionSpace, Q: _fem.FunctionSpace):
         """
         Create boundary conditions for the pressure conditions for a given velocity and
         pressure function space
@@ -224,6 +225,7 @@ class PressureBC():
 
         # Create homogenuous boundary condition for pressure correction eq
         boundary_facets = self._subdomain_data.find(self._subdomain_id)  # type: ignore
+        mesh.topology.create_connectivity(mesh.topology.dim-1, mesh.topology.dim)
         dofs = _fem.locate_dofs_topological(Q, mesh.topology.dim-1, boundary_facets)
         self._bc = _fem.dirichletbc(default_scalar_type(0.), dofs, Q)
 

@@ -55,9 +55,9 @@ class FractionalStep_AB_CN():
     _sol_u: _fem.Function  # Tentative velocity as vector function (for outputting)
 
     # Velocity component and mapping to parent space
-    _Vi: List[Tuple[_fem.FunctionSpaceBase, npt.NDArray[np.int32]]]
-    _V: _fem.FunctionSpaceBase  # Velocity function space
-    _Q: _fem.FunctionSpaceBase  # Pressure function space
+    _Vi: List[Tuple[_fem.FunctionSpace, npt.NDArray[np.int32]]]
+    _V: _fem.FunctionSpace  # Velocity function space
+    _Q: _fem.FunctionSpace  # Pressure function space
 
     # Mass matrix for velocity component
     _mass_Vi: _fem.Form
@@ -160,7 +160,7 @@ class FractionalStep_AB_CN():
             gdim=mesh.geometry.dim)
 
         # Initialize velocity functions for variational problem
-        self._V = _fem.FunctionSpace(mesh, v_el)
+        self._V = _fem.functionspace(mesh, v_el)
         self._sol_u = _fem.Function(self._V, name="u")  # Function for outputting vector functions
 
         self._Vi = [self._V.sub(i).collapse() for i in range(self._V.num_sub_spaces)]
@@ -185,7 +185,7 @@ class FractionalStep_AB_CN():
         self._b_first = [_fem.Function(Vi[0]) for Vi in self._Vi]
 
         # Initialize pressure functions for varitional problem
-        self._Q = _fem.FunctionSpace(mesh, p_el)
+        self._Q = _fem.functionspace(mesh, p_el)
         self._ps = _fem.Function(self._Q)  # Pressure used in tentative velocity scheme
         self._p = _fem.Function(self._Q)
         self._dp = _fem.Function(self._Q)
@@ -433,7 +433,8 @@ class FractionalStep_AB_CN():
             for i in range(self._mesh.geometry.dim):
                 self._p_vdxi_Vec[i].x.array[:] = 0.
                 _petsc.assemble_vector(
-                    self._p_vdxi_Vec[i].vector, self._p_vdxi[i], coeffs=coeffs, constants=[])
+                    self._p_vdxi_Vec[i].vector, self._p_vdxi[i], coeffs=coeffs,
+                    constants=np.empty(0, dtype=self._p_vdxi_Vec[i].x.array.dtype))
                 self._p_vdxi_Vec[i].x.scatter_reverse(_la.InsertMode.add)
                 self._p_vdxi_Vec[i].x.scatter_forward()
         else:

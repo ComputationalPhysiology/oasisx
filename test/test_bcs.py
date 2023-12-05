@@ -35,7 +35,7 @@ def test_function_geometrical(P):
 
     bc = DirichletBC(condition_0.eval,  LocatorMethod.GEOMETRICAL, locator)
 
-    V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", int(P)))
+    V = dolfinx.fem.functionspace(mesh, ("Lagrange", int(P)))
     bc.create_bc(V)
 
     for t in [0.1, 0.2, 0.3]:
@@ -77,7 +77,7 @@ def test_function_topological(P, dim):
     et = dolfinx.mesh.meshtags(mesh, dim, entities, np.full(len(entities), value, dtype=np.int32))
     bc = DirichletBC(condition_0.eval,  LocatorMethod.TOPOLOGICAL, (et, value))
 
-    V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", int(P)))
+    V = dolfinx.fem.functionspace(mesh, ("Lagrange", int(P)))
     bc.create_bc(V)
 
     for t in [0.1, 0.2, 0.3]:
@@ -109,7 +109,7 @@ def test_constant_geometrical(P):
 
     bc = DirichletBC(time,  LocatorMethod.GEOMETRICAL, locator)
 
-    V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", int(P)))
+    V = dolfinx.fem.functionspace(mesh, ("Lagrange", int(P)))
     bc.create_bc(V)
 
     for t in [0.1, 0.2, 0.3]:
@@ -142,7 +142,7 @@ def test_constant_topological(P, dim):
     et = dolfinx.mesh.meshtags(mesh, dim, entities, np.full(len(entities), value, dtype=np.int32))
     bc = DirichletBC(time, LocatorMethod.TOPOLOGICAL, (et, value))
 
-    V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", int(P)))
+    V = dolfinx.fem.functionspace(mesh, ("Lagrange", int(P)))
     bc.create_bc(V)
 
     for t in [0.1, 0.2, 0.3]:
@@ -181,8 +181,8 @@ def test_pressure_condition(P):
     et = dolfinx.mesh.meshtags(mesh, mesh.topology.dim-1, entities,
                                np.full(len(entities), value, dtype=np.int32))
     bc = PressureBC(condition_0.eval, (et, value))
-    V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", int(P)))
-    Q = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", int(P-1)))
+    V = dolfinx.fem.functionspace(mesh, ("Lagrange", int(P)))
+    Q = dolfinx.fem.functionspace(mesh, ("Lagrange", int(P-1)))
     bc.create_bcs(V, Q)
     p = dolfinx.fem.Function(Q)
     p.interpolate(condition_0.eval)
