@@ -14,7 +14,7 @@ import numpy as np
 
 def test_projector():
     mesh = dolfinx.mesh.create_unit_square(MPI.COMM_WORLD, 10, 10)
-    V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 2))
+    V = dolfinx.fem.functionspace(mesh, ("Lagrange", 2))
 
     # Interpolate initial solutiom
     u = dolfinx.fem.Function(V)
@@ -23,7 +23,7 @@ def test_projector():
     # Create gradient projector
     el = basix.ufl.element("DG", mesh.topology.cell_name(), 1,
                            shape=(mesh.geometry.dim, ), gdim=mesh.geometry.dim)
-    W = dolfinx.fem.FunctionSpace(mesh, el)
+    W = dolfinx.fem.functionspace(mesh, el)
     petsc_options = {"ksp_type": "preonly", "pc_type": "lu",
                      "pc_factor_mat_solver_type": "mumps"}
     gradient_projector = Projector(ufl.grad(u), W, [], petsc_options=petsc_options)

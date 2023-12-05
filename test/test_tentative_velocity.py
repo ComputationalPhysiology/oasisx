@@ -48,8 +48,8 @@ def create_tentative_forms(mesh: dolfinx.mesh.Mesh,
     Direct implementation of the i-th component of the tentative velocity equation
     """
 
-    V = dolfinx.fem.FunctionSpace(mesh, el_u)
-    Q = dolfinx.fem.FunctionSpace(mesh, el_p)
+    V = dolfinx.fem.functionspace(mesh, el_u)
+    Q = dolfinx.fem.functionspace(mesh, el_p)
 
     u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)

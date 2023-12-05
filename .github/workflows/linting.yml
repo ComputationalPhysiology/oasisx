@@ -13,7 +13,7 @@ env:
 jobs:
   check-code:
     runs-on: ubuntu-22.04
-    container: ghcr.io/fenics/dolfinx/dolfinx:stable
+    container: ghcr.io/fenics/dolfinx/dolfinx:nightly
 
     steps:
       - uses: actions/checkout@v4

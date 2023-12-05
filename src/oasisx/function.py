@@ -45,7 +45,7 @@ class Projector():
     __slots__ = tuple(__annotations__)
 
     def __init__(self, function: ufl.core.expr.Expr,
-                 space: dolfinx.fem.FunctionSpaceBase,
+                 space: dolfinx.fem.FunctionSpace,
                  bcs: List[dolfinx.fem.DirichletBC],
                  petsc_options: Optional[dict] = None,
                  jit_options: Optional[dict] = None,

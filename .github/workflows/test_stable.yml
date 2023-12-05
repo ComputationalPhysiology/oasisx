@@ -1,9 +1,12 @@
-name: Test package against nightly image
+name: Test package against stable release
 
 on:
   workflow_call:
   workflow_dispatch:
   pull_request:
+    branches:
+      - main
+  push:
     branches:
       - main
 
@@ -13,25 +16,22 @@ env:
 jobs:
   tests:
     runs-on: ubuntu-22.04
-    container: ghcr.io/fenics/dolfinx/dolfinx:nightly
+    container: ghcr.io/fenics/dolfinx/dolfinx:stable
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout at last working position
+        uses: actions/checkout@v4
+        with:
+          ref: v1.0.0
+          # ${{ github.ref }} # once backward compatibility is broken this should be pinned to a release
 
-      - name: "Install oasisx"
+      - name: Install oasisx
         run: python3 -m pip install .[test,docs]
 
       - name: Run tests
         run: python3 -m pytest
 
-      - name: "Run demos"
+      - name: Run demos
         run: |
           python3 demo/taylor_green.py  -N 8 -N 16 -N 32 -dt=0.005
           python3 demo/assembly_strategies.py
-
-      - name: Upload coverage report as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: code-coverage-report
-          path: htmlcov
-          if-no-files-found: error
