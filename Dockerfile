@@ -1,6 +1,6 @@
 # We choose ubuntu 22.04 as our base docker image
 
-FROM ghcr.io/fenics/dolfinx/lab:nightly
+FROM ghcr.io/fenics/dolfinx/lab:stable
 
 
 ENV DEB_PYTHON_INSTALL_LAYOUT=deb_system
