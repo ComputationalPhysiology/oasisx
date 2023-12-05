@@ -9,9 +9,9 @@ authors:
     family-names: Dokken
     email: dokken@simula.no
     affiliation: Simula Research Laboratory
-    orcid: 'https://orcid.org/0000-0001-6489-8858'
-repository-code: 'https://github.com/ComputationalPhysiology/oasisx/'
-url: 'https://computationalphysiology.github.io/oasisx/'
+    orcid: "https://orcid.org/0000-0001-6489-8858"
+repository-code: "https://github.com/ComputationalPhysiology/oasisx/"
+url: "https://computationalphysiology.github.io/oasisx/"
 abstract: >-
   High-performant Navier-Stokes solver using IPCS splitting
   scheme
@@ -20,5 +20,5 @@ keywords:
   - FEniCSx
   - Navier-Stokes
 license: MIT
-version: v0.2.0
-date-released: '2023-03-24'
+version: v1.0.0
+date-released: "2023-12-05"
