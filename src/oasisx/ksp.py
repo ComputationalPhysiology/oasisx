@@ -12,7 +12,7 @@ import numpy as np
 
 class KSPSolver:
     _prefix: str
-    _ksp: _PETSc.KSP  # Krylov subspace solver
+    _ksp: _PETSc.KSP  # type: ignore
     __slots__ = tuple(__annotations__)
 
     def __init__(self, comm: MPI.Comm,
@@ -27,7 +27,7 @@ class KSPSolver:
                 <https://petsc4py.readthedocs.io/en/stable/manual/ksp/>`_.
         """
         petsc_options = {} if petsc_options is None else petsc_options
-        self._ksp = _PETSc.KSP().create(comm)
+        self._ksp = _PETSc.KSP().create(comm)    # type: ignore
         self._prefix = prefix
         self.updateOptions(petsc_options)
 
@@ -39,26 +39,30 @@ class KSPSolver:
             that :func:`setOptions` has to be called after this operation
         """
         self._ksp.setOptionsPrefix(self._prefix)
-        opts = _PETSc.Options()
+        opts = _PETSc.Options()  # type: ignore
         opts.prefixPush(self._prefix)
         for k, v in options.items():
             opts[k] = v
         opts.prefixPop()
         self._ksp.setFromOptions()
 
-    def setOptions(self, op: typing.Union[_PETSc.Mat, _PETSc.Vec]):
+    def setOptions(self, op: typing.Union[_PETSc.Mat, _PETSc.Vec]):    # type: ignore
         prefix = self._ksp.getOptionsPrefix()
         assert prefix is not None
         op.setOptionsPrefix(prefix)
         op.setFromOptions()
 
-    def setOperators(self, A: _PETSc.Mat, P: typing.Optional[_PETSc.Mat] = None):
+    def setOperators(self,
+                     A: _PETSc.Mat,    # type: ignore
+                     P: typing.Optional[_PETSc.Mat] = None):    # type: ignore
         if P is None:
             self._ksp.setOperators(A)
         else:
             self._ksp.setOperators(A, P)
 
-    def solve(self, b: _PETSc.Vec, x: _fem.Function) -> np.int32:
+    def solve(self,
+              b: _PETSc.Vec,  # type: ignore
+              x: _fem.Function) -> np.int32:
         self._ksp.solve(b, x.vector)
         x.x.scatter_forward()
         return np.int32(self._ksp.getConvergedReason())
@@ -68,7 +72,7 @@ class KSPSolver:
         Delete PETSc options manually due to https://gitlab.com/petsc/petsc/-/issues/1201
         """
         try:
-            opts = _PETSc.Options()
+            opts = _PETSc.Options()  # type: ignore
             all_opts = opts.getAll()
             for key in all_opts.keys():
                 if f"Oasis_solve_{id(self)}" in key:

@@ -90,25 +90,25 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
     # Assemble time independent matrices
     # Mass matrix
     M = dolfinx.fem.petsc.create_matrix(mass_form)
-    M.setOption(PETSc.Mat.Option.SYMMETRIC, True)
-    M.setOption(PETSc.Mat.Option.SYMMETRY_ETERNAL, True)
-    M.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
+    M.setOption(PETSc.Mat.Option.SYMMETRIC, True)  # type: ignore
+    M.setOption(PETSc.Mat.Option.SYMMETRY_ETERNAL, True)  # type: ignore
+    M.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)  # type: ignore
     dolfinx.fem.petsc.assemble_matrix(M, mass_form)
     M.assemble()
-    M.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)
+    M.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)  # type: ignore
 
     # Stiffness matrix
     K = dolfinx.fem.petsc.create_matrix(stiffness_form)
-    K.setOption(PETSc.Mat.Option.SYMMETRIC, True)
-    K.setOption(PETSc.Mat.Option.SYMMETRY_ETERNAL, True)
-    K.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
+    K.setOption(PETSc.Mat.Option.SYMMETRIC, True)  # type: ignore
+    K.setOption(PETSc.Mat.Option.SYMMETRY_ETERNAL, True)  # type: ignore
+    K.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)  # type: ignore
     dolfinx.fem.petsc.assemble_matrix(K, stiffness_form)
     K.assemble()
-    K.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)
+    K.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)  # type: ignore
 
     # Create time dependent matrix (convection matrix)
     A = dolfinx.fem.petsc.create_matrix(mass_form)
-    A.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
+    A.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)  # type: ignore
 
     # Vector for matrix vector product
     b = dolfinx.fem.Function(V)

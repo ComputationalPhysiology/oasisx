@@ -4,57 +4,38 @@ requires = ["setuptools>=61.0.0", "wheel"]
 
 [project]
 name = "OasisX"
-authors = [
-    {name = "Jørgen S. Dokken", email = "dokken@simula.no"}
-    ]
-version = "0.2.0" # Version number
+authors = [{ name = "Jørgen S. Dokken", email = "dokken@simula.no" }]
+version = "1.0.0"                                                     # Version number
 description = "A modern implementation of Oasis"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {file = "LICENSE"}
-dependencies = [
-    'numpy',
-    'fenics-dolfinx>0.6.0'
-]
+license = { file = "LICENSE" }
+dependencies = ['numpy', 'fenics-dolfinx>=0.7.0']
 
 [project.scripts]
 oasisx = "oasisx.__main__:main"
 
 [project.optional-dependencies]
-test = [
-   "flake8",
-   "mypy",
-   "pytest",
-   "pytest-cov"
-]
+test = ["flake8", "mypy", "pytest", "pytest-cov"]
 
 docs = [
     "jupyter-book",
     "jupytext",
     "seaborn",
+    "docutils==0.17.1",
+    # Temporary pin due to https://sourceforge.net/p/docutils/patches/195/
 ]
 
-binder = [
-    "jupyterlab",
-    "notebook"
-]
+binder = ["jupyterlab", "notebook"]
 
 [tool.mypy]
-ignore_missing_imports = true # Does not show errors when importing untyped libraries
-exclude = [
-    "docs/_build", 
-    "build/"
-]
-files = [
-    "src",
-    "test"
-]
+ignore_missing_imports = true       # Does not show errors when importing untyped libraries
+exclude = ["docs/_build", "build/"]
+files = ["src", "test"]
 
 [tool.pytest.ini_options]
 addopts = "--cov=oasisx --cov-report html --cov-append --cov-report term-missing -v"
-testpaths = [
-    "test"
-]
+testpaths = ["test"]
 
 
 [tool.jupytext.formats]

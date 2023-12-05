@@ -21,7 +21,6 @@ concurrency:
   group: "pages"
   cancel-in-progress: true
 
-
 jobs:
   linting:
     uses: ./.github/workflows/linting.yml
@@ -34,21 +33,21 @@ jobs:
 
   deploy:
     runs-on: ubuntu-22.04
-    needs: [build-docs,run-tests]
+    needs: [build-docs, run-tests]
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
- 
+
     steps:
       - name: Setup Pages
-        uses: actions/configure-pages@v2
-  
+        uses: actions/configure-pages@v4
+
       - name: Download docs artifact
         uses: actions/download-artifact@v3
         with:
           name: documentation
           path: "./documentation"
-      
+
       - name: Download docs artifact
         uses: actions/download-artifact@v3
         with:
@@ -56,10 +55,10 @@ jobs:
           path: "./documentation/code-coverage-report"
 
       - name: Upload page artifact
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v2
         with:
           path: "./documentation"
 
       - name: Deploy coverage report to GH Pages
         id: deployment
-        uses: actions/deploy-pages@v1
+        uses: actions/deploy-pages@v3

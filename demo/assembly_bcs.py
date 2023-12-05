@@ -90,22 +90,22 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
 
     # Assemble time independent matrices
     # Mass matrix
-    M = dolfinx.fem.petsc.create_matrix(mass_form)
-    M.setOption(PETSc.Mat.Option.SYMMETRIC, True)
-    M.setOption(PETSc.Mat.Option.SYMMETRY_ETERNAL, True)
-    M.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
+    M = dolfinx.fem.petsc.create_matrix(mass_form)  # type: ignore
+    M.setOption(PETSc.Mat.Option.SYMMETRIC, True)  # type: ignore
+    M.setOption(PETSc.Mat.Option.SYMMETRY_ETERNAL, True)  # type: ignore
+    M.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)  # type: ignore
     dolfinx.fem.petsc.assemble_matrix(M, mass_form)
     M.assemble()
-    M.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)
+    M.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)  # type: ignore
 
     # Stiffness matrix
     K = dolfinx.fem.petsc.create_matrix(stiffness_form)
-    K.setOption(PETSc.Mat.Option.SYMMETRIC, True)
-    K.setOption(PETSc.Mat.Option.SYMMETRY_ETERNAL, True)
-    K.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
+    K.setOption(PETSc.Mat.Option.SYMMETRIC, True)  # type: ignore
+    K.setOption(PETSc.Mat.Option.SYMMETRY_ETERNAL, True)  # type: ignore
+    K.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)  # type: ignore
     dolfinx.fem.petsc.assemble_matrix(K, stiffness_form)
     K.assemble()
-    K.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)
+    K.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)  # type: ignore
 
     # RHS vectors
     b = dolfinx.fem.Function(V)
@@ -132,8 +132,8 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         # Zero out time-dependent matrix
         start_mat = time.perf_counter()
         A.zeroEntries()
-        A.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
-        A.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, False)
+        A.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)  # type: ignore
+        A.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, False)  # type: ignore
         end_mat = time.perf_counter()
 
         # Add convection term
@@ -141,8 +141,8 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         dolfinx.fem.petsc.assemble_matrix(A, convection_form)
         A.assemble()
         A.scale(-0.5)
-        A.axpy(1./dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
-        A.axpy(-0.5*nu, K, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
+        A.axpy(1./dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
+        A.axpy(-0.5*nu, K, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
         end_lhs = time.perf_counter()
 
         # Do mat-vec operations
@@ -159,7 +159,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         # Rescale matrix and apply bc
         start_rescale = time.perf_counter()
         A.scale(-1)
-        A.axpy(2/dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
+        A.axpy(2/dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
         for bc in bcs:
             A.zeroRowsLocal(bc._cpp_object.dof_indices()[0], 1.)  # type: ignore
         end_rescale = time.perf_counter()
@@ -174,8 +174,8 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         # ---------------------------------------------------------
         # Zero out time-dependent matrix
         Ax.zeroEntries()
-        Ax.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)
-        Ax.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, False)
+        Ax.setOption(PETSc.Mat.Option.KEEP_NONZERO_PATTERN, True)  # type: ignore
+        Ax.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, False)  # type: ignore
 
         mesh.comm.Barrier()
 
@@ -184,8 +184,8 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         dolfinx.fem.petsc.assemble_matrix(Ax, convection_form)
         Ax.assemble()
         Ax.scale(0.5)
-        Ax.axpy(1./dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
-        Ax.axpy(0.5*nu, K, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)
+        Ax.axpy(1./dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
+        Ax.axpy(0.5*nu, K, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
         for bc in bcs:
             Ax.zeroRowsLocal(bc._cpp_object.dof_indices()[0], 1.)  # type: ignore
         end_lhs_new = time.perf_counter()
@@ -218,8 +218,8 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
 
         # Check that matrices are the same
         D.zeroEntries()
-        A.copy(D, PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
-        D.axpy(-1, Ax, PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
+        A.copy(D, PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)  # type: ignore
+        D.axpy(-1, Ax, PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)  # type: ignore
         if not np.allclose(D.getValuesCSR()[2], 0):
             print(np.max(np.abs(D.getValuesCSR()[2])))
             raise RuntimeError("Matrices are not equal after assembly")

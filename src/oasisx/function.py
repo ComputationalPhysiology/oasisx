@@ -32,18 +32,20 @@ class Projector():
         form_compiler_options: Options to pass to the form compiler
         metadata: Data to pass to the integration measure
     """
-
-    _A: _petsc.Mat  # The mass matrix
-    _b: _petsc.Vec  # The rhs vector
+    # The mass matrix
+    _A: _petsc.Mat  # type: ignore
+    # The rhs vector
+    _b: _petsc.Vec  # type: ignore
     _lhs: dolfinx.fem.forms.Form  # The compiled form for the mass matrix
     _rhs: dolfinx.fem.forms.Form  # The compiled form form the rhs vector
-    _ksp: _petsc.KSP  # The PETSc solver
+    # The PETSc solver
+    _ksp: _petsc.KSP  # type: ignore
     _x: dolfinx.fem.Function  # The solution vector
     _bcs: List[dolfinx.fem.DirichletBC]
     __slots__ = tuple(__annotations__)
 
     def __init__(self, function: ufl.core.expr.Expr,
-                 space: dolfinx.fem.FunctionSpace,
+                 space: dolfinx.fem.FunctionSpaceBase,
                  bcs: List[dolfinx.fem.DirichletBC],
                  petsc_options: Optional[dict] = None,
                  jit_options: Optional[dict] = None,
@@ -71,12 +73,12 @@ class Projector():
         self._bcs = bcs
 
         # Create Krylov Subspace solver
-        self._ksp = _petsc.KSP().create(space.mesh.comm)
+        self._ksp = _petsc.KSP().create(space.mesh.comm)  # type: ignore
         self._ksp.setOperators(self._A)
 
         # Set PETSc options
         prefix = f"oasis_projector_{id(self)}"
-        opts = _petsc.Options()
+        opts = _petsc.Options()  # type: ignore
         opts.prefixPush(prefix)
         for k, v in petsc_options.items():
             opts[k] = v
