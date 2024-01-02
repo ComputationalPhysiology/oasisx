@@ -18,7 +18,7 @@ from petsc4py import PETSc as _PETSc
 from mpi4py import MPI as _MPI
 from .bcs import DirichletBC, PressureBC
 from .ksp import KSPSolver
-
+from .function import Projector
 __all__ = ["FractionalStep_AB_CN"]
 
 
@@ -35,6 +35,7 @@ class FractionalStep_AB_CN():
             degree of the element used for the pressure
         bcs_u: List of Dirichlet BCs for each component of the velocity
         bcs_p: List of Dirichlet BCs for the pressure
+        rotational: If True, use rotational form of pressure update
         solver_options: Dictionary with keys `'tentative'`, `'pressure'` and `'scalar'`,
             where each key leads to a dictionary of of PETSc options for each problem
         jit_options: Just in time parameters, to optimize form compilation
@@ -84,7 +85,7 @@ class FractionalStep_AB_CN():
     _conv_Vi: _fem.Form
     _uab: List[_fem.Function]  # Explicit part of Adam Bashforth convection term
 
-    # Stiffness matrix for velocity compoenent
+    # Stiffness matrix for velocity component
     _stiffness_Vi: _fem.Form
     _K: _PETSc.Mat  # type: ignore
 
@@ -121,6 +122,10 @@ class FractionalStep_AB_CN():
     _Ap: _PETSc.Mat  # type: ignore
     _wrk_p: _fem.Function  # Working vector for matrix vector    products in non-low memory version
 
+    # Rotational pressure correction variables
+    _projector_p: Optional[Projector]
+    _xi: Optional[_fem.Constant]
+
     # ----------------------Velocity update-------------------------------------
     _solver_c: KSPSolver
 
@@ -142,6 +147,7 @@ class FractionalStep_AB_CN():
                  p_element: Tuple[str, int],
                  bcs_u: List[List[DirichletBC]],
                  bcs_p: List[PressureBC],
+                 rotational: bool = False,
                  solver_options: Optional[dict] = None,
                  jit_options: Optional[dict] = None,
                  body_force: Optional[ufl.core.expr.Expr] = None,
@@ -169,7 +175,7 @@ class FractionalStep_AB_CN():
         self._u2 = [_fem.Function(Vi[0], name=f"u_{i}2") for (i, Vi) in enumerate(self._Vi)]
         self._uab = [_fem.Function(Vi[0], name=f"u_{i}ab") for (i, Vi) in enumerate(self._Vi)]
 
-        # Create boundary conditons for velocity spaces
+        # Create boundary conditions for velocity spaces
         self._bcs_u = bcs_u
         for bc_i, Vi in zip(self._bcs_u, self._Vi):
             for bc in bc_i:
@@ -184,7 +190,7 @@ class FractionalStep_AB_CN():
         self._b0 = [_fem.Function(Vi[0]) for Vi in self._Vi]
         self._b_first = [_fem.Function(Vi[0]) for Vi in self._Vi]
 
-        # Initialize pressure functions for varitional problem
+        # Initialize pressure functions for variational problem
         self._Q = _fem.functionspace(mesh, p_el)
         self._ps = _fem.Function(self._Q)  # Pressure used in tentative velocity scheme
         self._p = _fem.Function(self._Q)
@@ -208,8 +214,19 @@ class FractionalStep_AB_CN():
                                    prefix="tentative_velocity")
         self._solver_p = KSPSolver(mesh.comm, solver_options.get("pressure"),
                                    prefix="pressure_correction")
+        if rotational:
+            self._xi = _fem.Constant(mesh, 0.7)
+            update_expr = self._p + self._dp - self._xi * ufl.div(ufl.as_vector(self._u))
+            self._projector_p = Projector(
+                update_expr, self._Q, bcs=[],
+                petsc_options=solver_options.get("scalar"),
+                jit_options=jit_options)
+        else:
+            self._projector_p = None
+            self._xi = None
+
         self._solver_c = KSPSolver(mesh.comm, solver_options.get("scalar"),
-                                   prefix="velcoity_update")
+                                   prefix="velocity_update")
 
         if options is None:
             options = {}
@@ -267,7 +284,7 @@ class FractionalStep_AB_CN():
                             for i in range(self._mesh.geometry.dim)]
             self._p_vdxi_Mat = [_petsc.create_matrix(grad_p) for grad_p in self._p_vdxi]
 
-        # -----------------Pressure currection step----------------------
+        # -----------------Pressure correction step----------------------
 
         # Pressure Laplacian/stiffness matrix
         q = ufl.TestFunction(self._Q)
@@ -393,7 +410,7 @@ class FractionalStep_AB_CN():
         # Compute rhs for all velocity components
         for i, _ in enumerate(self._u):
             self._b_first[i].x.array[:] = 0
-            # Start with transient convection and difffusion
+            # Start with transient convection and diffusion
             self._A.mult(self._u1[i].vector, self._wrk_comp.vector)
             self._wrk_comp.x.scatter_forward()
 
@@ -487,12 +504,12 @@ class FractionalStep_AB_CN():
         self._b2.x.scatter_reverse(_la.InsertMode.add)
         self._b2.vector.scale(-1/dt)
 
-        # Set homogenuous Dirichlet boundary condition on pressure correction
+        # Set homogenous Dirichlet boundary condition on pressure correction
         bc_p = [bc._bc for bc in self._bcs_p]
         _petsc.set_bc(self._b2.vector, bc_p)
         self._b2.x.scatter_forward()
 
-    def pressure_solve(self) -> np.int32:
+    def pressure_solve(self, rotational: bool = False) -> np.int32:
         """
         Solve pressure correction problem
         """
@@ -521,7 +538,11 @@ class FractionalStep_AB_CN():
                 _fem.assemble_scalar(_fem.form(self._dp*ufl.dx)),
                 op=_MPI.SUM)/vol
             self._dp.x.array[:] -= phi_avg
-        self._ps.x.array[:] = self._p.x.array[:] + self._dp.x.array
+        if self._projector_p is not None:
+            self._projector_p.solve(assemble_rhs=True)
+            self._ps.x.array[:] = self._projector_p.x.x.array[:]
+        else:
+            self._ps.x.array[:] = self._p.x.array[:] + self._dp.x.array
         return converged
 
     def velocity_update(self, dt) -> npt.NDArray[np.int32]:
@@ -606,6 +627,7 @@ class FractionalStep_AB_CN():
             assert error_p > 0
 
         # assert inner_it != max_iter
+
         self.velocity_update(dt)
 
         # Propagate solutions u1->u2, u->u1

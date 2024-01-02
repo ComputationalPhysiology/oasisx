@@ -60,6 +60,8 @@ parser.add_argument("-u", dest="u_deg", type=int, help="Degree of velocity space
 parser.add_argument("-p", dest="p_deg", type=int, help="Degree of pressure space", default=1)
 parser.add_argument("-lm", "--low-memory", dest="lm", action="store_true",
                     default=False, help="Use low memory version of Oasisx")
+parser.add_argument("-r", "--rotational", dest="rot", action="store_true",
+                    default=False, help="Use rotational formulation of pressure update")
 inputs = parser.parse_args()
 # FIXME: add loglevel to input parser
 logger = logging.getLogger("Oasisx")
@@ -109,6 +111,7 @@ for n, N in enumerate(inputs.Ns):
     # Create fractional step solver
     solver = oasisx.FractionalStep_AB_CN(
         mesh, el_u, el_p, bcs_u=bcs_u, bcs_p=bcs_p,
+        rotational=inputs.rot,
         solver_options=solver_options, options=options, body_force=f)
 
     # Set initial conditions for velocity
@@ -124,8 +127,8 @@ for n, N in enumerate(inputs.Ns):
     man_p = -0.25 * (ufl.cos(2*ufl.pi*x[0])+ufl.cos(2*ufl.pi*x[1]))*ufl.exp(-4*ufl.pi**2*nu*p_time)
     p_expr = dolfinx.fem.Expression(man_p, solver._Q.element.interpolation_points())
     solver._p.interpolate(p_expr)
-    vtxu = dolfinx.io.VTXWriter(mesh.comm, "u.bp", [solver.u])
-    vtxp = dolfinx.io.VTXWriter(mesh.comm, "p.bp", [solver._p])
+    vtxu = dolfinx.io.VTXWriter(mesh.comm, "u.bp", [solver.u], engine="BP4")
+    vtxp = dolfinx.io.VTXWriter(mesh.comm, "p.bp", [solver._p], engine="BP4")
 
     man_u = ufl.as_vector((
         - ufl.sin(ufl.pi*x[1])*ufl.cos(ufl.pi*x[0]),
