@@ -26,16 +26,17 @@
 # We start by importing the necessary modules
 
 
-import seaborn
-import pandas
-import dolfinx
-import dolfinx.fem.petsc
 from typing import Optional
+
 from mpi4py import MPI
 from petsc4py import PETSc
-import ufl
-import numpy as np
 
+import dolfinx
+import dolfinx.fem.petsc
+import numpy as np
+import pandas
+import seaborn
+import ufl
 
 # We define a function, that takes in a mesh, the order `P` of the Lagrange function space for the
 # scalar component of the velocity field, the number of times we should time the assembly, and

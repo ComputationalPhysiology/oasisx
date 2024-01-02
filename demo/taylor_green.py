@@ -20,15 +20,18 @@
 #
 
 
-import ufl
+import argparse
+import logging
+from typing import List
+
+from mpi4py import MPI
+
 import dolfinx
 import numpy as np
-from mpi4py import MPI
-import logging
-import oasisx
-import argparse
 import numpy.typing as npt
-from typing import List
+import ufl
+
+import oasisx
 
 
 class U():

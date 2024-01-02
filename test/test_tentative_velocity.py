@@ -5,14 +5,15 @@
 
 from typing import List, Optional, Tuple
 
+from mpi4py import MPI
+from petsc4py import PETSc
+
 import dolfinx
 import numpy as np
 import numpy.typing as npt
 import pytest
 import scipy.sparse
 import ufl
-from mpi4py import MPI
-from petsc4py import PETSc
 
 from oasisx import DirichletBC, FractionalStep_AB_CN, LocatorMethod, PressureBC
 

@@ -6,8 +6,8 @@
 
 import argparse
 
-from .mesh import import_mesh
 from .fracstep import FractionalStep_AB_CN
+from .mesh import import_mesh
 
 desc = "Welcome to the Oasisx Python Package. To run the code, add the" + \
     " following command-line arguments"

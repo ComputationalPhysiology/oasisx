@@ -3,22 +3,27 @@
 # This file is part of Oasisx
 # SPDX-License-Identifier:    MIT
 
-from typing import List, Optional, Tuple
 import logging
+from typing import List, Optional, Tuple
+
+from mpi4py import MPI as _MPI
+from petsc4py import PETSc as _PETSc
+
+import basix
+import dolfinx.fem.petsc as _petsc
 import numpy as np
 import numpy.typing as npt
 import ufl
-import basix
-import dolfinx.fem.petsc as _petsc
 from dolfinx import cpp as _cpp
+from dolfinx import default_scalar_type
 from dolfinx import fem as _fem
 from dolfinx import la as _la
 from dolfinx import mesh as _dmesh
-from petsc4py import PETSc as _PETSc
-from mpi4py import MPI as _MPI
+
 from .bcs import DirichletBC, PressureBC
-from .ksp import KSPSolver
 from .function import Projector
+from .ksp import KSPSolver
+
 __all__ = ["FractionalStep_AB_CN"]
 
 
@@ -125,6 +130,7 @@ class FractionalStep_AB_CN():
     # Rotational pressure correction variables
     _projector_p: Optional[Projector]
     _xi: Optional[_fem.Constant]
+    _nu: Optional[_fem.Constant]
 
     # ----------------------Velocity update-------------------------------------
     _solver_c: KSPSolver
@@ -215,8 +221,9 @@ class FractionalStep_AB_CN():
         self._solver_p = KSPSolver(mesh.comm, solver_options.get("pressure"),
                                    prefix="pressure_correction")
         if rotational:
-            self._xi = _fem.Constant(mesh, 0.7)
-            update_expr = self._p + self._dp - self._xi * ufl.div(ufl.as_vector(self._u))
+            self._xi = _fem.Constant(mesh, default_scalar_type(0.7))
+            self._nu = _fem.Constant(mesh, default_scalar_type(1))
+            update_expr = self._p + self._dp - self._xi * self._nu * ufl.div(ufl.as_vector(self._u))
             self._projector_p = Projector(
                 update_expr, self._Q, bcs=[],
                 petsc_options=solver_options.get("scalar"),
@@ -224,6 +231,7 @@ class FractionalStep_AB_CN():
         else:
             self._projector_p = None
             self._xi = None
+            self._nu = None
 
         self._solver_c = KSPSolver(mesh.comm, solver_options.get("scalar"),
                                    prefix="velocity_update")
@@ -509,7 +517,7 @@ class FractionalStep_AB_CN():
         _petsc.set_bc(self._b2.vector, bc_p)
         self._b2.x.scatter_forward()
 
-    def pressure_solve(self, rotational: bool = False) -> np.int32:
+    def pressure_solve(self, nu: Optional[float] = None, rotational: bool = False) -> np.int32:
         """
         Solve pressure correction problem
         """
@@ -539,6 +547,8 @@ class FractionalStep_AB_CN():
                 op=_MPI.SUM)/vol
             self._dp.x.array[:] -= phi_avg
         if self._projector_p is not None:
+            assert nu is not None
+            self._nu.value = nu
             self._projector_p.solve(assemble_rhs=True)
             self._ps.x.array[:] = self._projector_p.x.x.array[:]
         else:
@@ -623,7 +633,7 @@ class FractionalStep_AB_CN():
 
             assert (errors > 0).all()
             self.pressure_assemble(dt)
-            error_p = self.pressure_solve()
+            error_p = self.pressure_solve(nu=nu)
             assert error_p > 0
 
         # assert inner_it != max_iter

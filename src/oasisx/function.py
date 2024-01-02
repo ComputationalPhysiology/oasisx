@@ -5,9 +5,10 @@
 
 from typing import List, Optional
 
+from petsc4py import PETSc as _petsc
+
 import dolfinx.fem
 import ufl
-from petsc4py import PETSc as _petsc
 
 
 class Projector():

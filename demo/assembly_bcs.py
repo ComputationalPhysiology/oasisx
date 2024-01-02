@@ -31,6 +31,9 @@
 import time
 import typing
 
+from mpi4py import MPI
+from petsc4py import PETSc
+
 import dolfinx
 import dolfinx.fem.petsc
 import matplotlib.pyplot as plt
@@ -38,8 +41,6 @@ import numpy as np
 import pandas
 import seaborn
 import ufl
-from mpi4py import MPI
-from petsc4py import PETSc
 
 # -
 

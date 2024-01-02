@@ -6,8 +6,9 @@
 
 __all__ = ["import_mesh"]
 
-import dolfinx.mesh as _mesh
 from mpi4py import MPI
+
+import dolfinx.mesh as _mesh
 
 
 def import_mesh(filename: str) -> _mesh.Mesh:

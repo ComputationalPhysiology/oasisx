@@ -3,10 +3,12 @@
 # This file is part of Oasisx
 # SPDX-License-Identifier:    MIT
 
-from petsc4py import PETSc as _PETSc
-import dolfinx.fem as _fem
 import typing
+
 from mpi4py import MPI
+from petsc4py import PETSc as _PETSc
+
+import dolfinx.fem as _fem
 import numpy as np
 
 
