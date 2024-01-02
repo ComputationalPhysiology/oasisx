@@ -46,7 +46,7 @@ class Projector():
 
     def __init__(self, function: ufl.core.expr.Expr,
                  space: dolfinx.fem.FunctionSpace,
-                 bcs: List[dolfinx.fem.DirichletBC],
+                 bcs: Optional[List[dolfinx.fem.DirichletBC]] = None,
                  petsc_options: Optional[dict] = None,
                  jit_options: Optional[dict] = None,
                  form_compiler_options: Optional[dict] = None,
@@ -70,7 +70,7 @@ class Projector():
                                      form_compiler_options=form_compiler_options)
         self._x = dolfinx.fem.Function(space)
         self._b = dolfinx.fem.Function(space)
-        self._bcs = bcs
+        self._bcs = [] if bcs is None else bcs
 
         # Create Krylov Subspace solver
         self._ksp = _petsc.KSP().create(space.mesh.comm)  # type: ignore
@@ -84,12 +84,16 @@ class Projector():
             opts[k] = v
         opts.prefixPop()
         self._ksp.setFromOptions()
-
+        for opt in opts.getAll().keys():
+            del opts[opt]
         # Set matrix and vector PETSc options
         self._A.setOptionsPrefix(prefix)
         self._A.setFromOptions()
         self._b.vector.setOptionsPrefix(prefix)
         self._b.vector.setFromOptions()
+
+        # Setup preconditioner
+        self._ksp.setUp()
 
     def assemble_rhs(self):
         """
@@ -97,10 +101,12 @@ class Projector():
         """
         self._b.x.array[:] = 0.
         dolfinx.fem.petsc.assemble_vector(self._b.vector, self._rhs)
-        dolfinx.fem.petsc.apply_lifting(
-            self._b.vector, [self._lhs], bcs=[self._bcs])
+        if len(self._bcs) > 0:
+            dolfinx.fem.petsc.apply_lifting(
+                self._b.vector, [self._lhs], bcs=[self._bcs])
         self._b.x.scatter_reverse(dolfinx.cpp.la.InsertMode.add)
-        dolfinx.fem.petsc.set_bc(self._b.vector, self._bcs)
+        if len(self._bcs) > 0:
+            dolfinx.fem.petsc.set_bc(self._b.vector, self._bcs)
         self._b.x.scatter_forward()
 
     def solve(self, assemble_rhs: bool = True):
