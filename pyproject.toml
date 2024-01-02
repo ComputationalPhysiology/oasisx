@@ -16,7 +16,7 @@ dependencies = ['numpy', 'fenics-dolfinx>=0.7.0']
 oasisx = "oasisx.__main__:main"
 
 [project.optional-dependencies]
-test = ["flake8", "mypy", "pytest", "pytest-cov"]
+test = ["flake8", "mypy", "pytest", "pytest-cov", "isort"]
 
 docs = [
     "jupyter-book",
@@ -41,3 +41,18 @@ testpaths = ["test"]
 [tool.jupytext.formats]
 "docs/" = "ipynb"
 "demo/" = "py:light"
+
+
+[tool.isort]
+src_paths = ["src", "demo", "test"]
+known_first_party = ["oasisx"]
+known_third_party = ["basix", "dolfinx", "ufl", "gmsh", "numpy", "pytest"]
+known_mpi = ["mpi4py", "petsc4py"]
+sections = [
+    "FUTURE",
+    "STDLIB",
+    "MPI",
+    "THIRDPARTY",
+    "FIRSTPARTY",
+    "LOCALFOLDER",
+]

@@ -161,7 +161,7 @@ Thus we use that $\frac{\partial \phi}{\partial n}=0$ on $\partial \Omega$.
 
 It has been discussed in many papers that one could use $\phi=0$ on $\partial\Omega_D$, see for instance chapter 10 of {cite}`guermond2006`. In {cite}`guermond2005` it is shown that by using the rotational form of the equations (i.e. including the divergence term in $\phi$) yield reasonable error estimates.
 
-However, if $\partial \Omega_N\neq\emptyset$, then
+However, if $\partial \Omega_N\neq\emptyset$, then we need to consider the open boundary conditions for the pressure correction schemes, see the next section or {cite}`guermond2004rotational`
 
 Also note that we have lost control of the tangential part of the corrected velocity, as we do not have that $\mathbf{u}^n\cdot \mathbf{t} = \mathbf{u}^\star \cdot \mathbf{t} - \Delta t \nabla \phi \cdot \mathbf{t}\neq\mathbf{g}^n$ as $\nabla \phi \cdot \mathbf{t}\neq 0$.
 
@@ -188,11 +188,11 @@ We thus add an extra term
 
 $$
 \begin{align}
-\phi_= p^{n-\frac{1}{2}}-p^\star - \xi \nabla \cdot u_k^{I}.
+\phi_= p^{n-\frac{1}{2}}-p^\star - \xi \nu \nabla \cdot u_k^{I}
 \end{align}
 $$
 
-where $0<\xi\leq 1$ as shown in {cite}`guermond2003`.
+where $0<\xi\leq 1$ as shown in {cite}`guermond2004rotational` and {cite}`timmermans1996`.
 
 The first equation is solved for the tentative velocity $u_k^I$, where $\tilde u_k=\frac{1}{2}(u_k^I+u_k^{n-1})$, and the convective term $B_k^{n-\frac{1}{2}}=\mathbf{\bar{u}}\cdot \nabla \tilde u_k = (1.5 \mathbf{u}^{n-1}-0.5\mathbf{u}^{n-2})\cdot \nabla \tilde u_k$ is the implicit Adams-Bashforth discretization.
 
@@ -286,7 +286,7 @@ As the matrix $A$ is sparse and potentially large (millions of degrees of freedo
 M = assemble_mass_matrix()
 K = assemble_stiffness_matrix()
 for i in range(num_time_steps):
-    # Compute convecting velocity for C
+    # Compute convecting veloctiy for C
     for j in range(components):
         bar_u[j][:] = 0
         bar_u[j]+= 1.5 * u_1[j]
