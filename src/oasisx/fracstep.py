@@ -546,10 +546,12 @@ class FractionalStep_AB_CN():
                 _fem.assemble_scalar(_fem.form(self._dp*ufl.dx)),
                 op=_MPI.SUM)/vol
             self._dp.x.array[:] -= phi_avg
+
         if self._projector_p is not None:
             assert nu is not None
             self._nu.value = nu
-            self._projector_p.solve(assemble_rhs=True)
+            error = self._projector_p.solve(assemble_rhs=True)
+            assert (error > 0)
             self._ps.x.array[:] = self._projector_p.x.x.array[:]
         else:
             self._ps.x.array[:] = self._p.x.array[:] + self._dp.x.array
@@ -630,13 +632,10 @@ class FractionalStep_AB_CN():
             inner_it += 1
             self.velocity_tentative_assemble()
             diff, errors = self.velocity_tentative_solve()
-
             assert (errors > 0).all()
             self.pressure_assemble(dt)
             error_p = self.pressure_solve(nu=nu)
             assert error_p > 0
-
-        # assert inner_it != max_iter
 
         self.velocity_update(dt)
 

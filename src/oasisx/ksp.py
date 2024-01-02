@@ -47,6 +47,8 @@ class KSPSolver:
             opts[k] = v
         opts.prefixPop()
         self._ksp.setFromOptions()
+        for opt in opts.getAll().keys():
+            del opts[opt]
 
     def setOptions(self, op: typing.Union[_PETSc.Mat, _PETSc.Vec]):    # type: ignore
         prefix = self._ksp.getOptionsPrefix()

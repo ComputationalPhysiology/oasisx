@@ -78,23 +78,26 @@ class Projector():
         self._ksp.setOperators(self._A)
 
         # Set PETSc options
-        prefix = f"oasis_projector_{id(self)}"
+        prefix = f"oasis_projector"
         opts = _petsc.Options()  # type: ignore
         opts.prefixPush(prefix)
+        self._ksp.setOptionsPrefix(prefix)
         for k, v in petsc_options.items():
             opts[k] = v
         opts.prefixPop()
         self._ksp.setFromOptions()
-        for opt in opts.getAll().keys():
-            del opts[opt]
+
         # Set matrix and vector PETSc options
         self._A.setOptionsPrefix(prefix)
         self._A.setFromOptions()
         self._b.vector.setOptionsPrefix(prefix)
         self._b.vector.setFromOptions()
 
+        for opt in opts.getAll().keys():
+            del opts[opt]
+
         # Setup preconditioner
-        self._ksp.setUp()
+        self._ksp.getPC().setUp()
 
     def assemble_rhs(self):
         """
@@ -110,7 +113,7 @@ class Projector():
             dolfinx.fem.petsc.set_bc(self._b.vector, self._bcs)
         self._b.x.scatter_forward()
 
-    def solve(self, assemble_rhs: bool = True):
+    def solve(self, assemble_rhs: bool = True) -> int:
         """
         Compute projection using PETSc a KSP solver
 
@@ -121,6 +124,7 @@ class Projector():
             self.assemble_rhs()
 
         self._ksp.solve(self._b.vector, self._x.vector)
+        return int(self._ksp.getConvergedReason())
 
     @property
     def x(self):
