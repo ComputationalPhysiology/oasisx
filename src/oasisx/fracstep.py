@@ -221,7 +221,7 @@ class FractionalStep_AB_CN():
         self._solver_p = KSPSolver(mesh.comm, solver_options.get("pressure"),
                                    prefix="pressure_correction")
         if rotational:
-            self._xi = _fem.Constant(mesh, default_scalar_type(0.7))
+            self._xi = _fem.Constant(mesh, default_scalar_type(0.5))
             self._nu = _fem.Constant(mesh, default_scalar_type(1))
             update_expr = self._p + self._dp - self._xi * self._nu * ufl.div(ufl.as_vector(self._u))
             self._projector_p = Projector(
