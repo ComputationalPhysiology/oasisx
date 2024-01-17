@@ -4,7 +4,7 @@
 # SPDX-License-Identifier:    MIT
 
 import logging
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 from mpi4py import MPI as _MPI
 from petsc4py import PETSc as _PETSc
@@ -149,8 +149,8 @@ class FractionalStep_AB_CN():
 
     def __init__(self,
                  mesh: _dmesh.Mesh,
-                 u_element: Tuple[str, int],
-                 p_element: Tuple[str, int],
+                 u_element: Union[Tuple[str, int], basix.finite_element.FiniteElement],
+                 p_element: Union[Tuple[str, int], basix.finite_element.FiniteElement],
                  bcs_u: List[List[DirichletBC]],
                  bcs_p: List[PressureBC],
                  rotational: bool = False,
@@ -159,17 +159,21 @@ class FractionalStep_AB_CN():
                  body_force: Optional[ufl.core.expr.Expr] = None,
                  options: Optional[dict] = None):
         self._mesh = mesh
-
         cellname = mesh.ufl_cell().cellname()
-        v_family = basix.finite_element.string_to_family(u_element[0], cellname)
-        p_family = basix.finite_element.string_to_family(p_element[0], cellname)
-
-        v_el = basix.ufl.element(
-            v_family, cellname, u_element[1], basix.LagrangeVariant.gll_warped,
-            shape=(mesh.geometry.dim,), gdim=mesh.geometry.dim)
-        p_el = basix.ufl.element(
-            p_family, cellname, p_element[1], basix.LagrangeVariant.gll_warped,
-            gdim=mesh.geometry.dim)
+        try:
+            v_family = basix.finite_element.string_to_family(u_element[0], cellname)
+            v_el = basix.ufl.element(
+                v_family, cellname, u_element[1], basix.LagrangeVariant.gll_warped,
+                shape=(mesh.geometry.dim,), gdim=mesh.geometry.dim)
+        except KeyError:
+            v_el = u_element
+        try: 
+            p_family = basix.finite_element.string_to_family(p_element[0], cellname)
+            p_el = basix.ufl.element(
+                p_family, cellname, p_element[1], basix.LagrangeVariant.gll_warped,
+                gdim=mesh.geometry.dim)
+        except KeyError:
+            p_el = p_element
 
         # Initialize velocity functions for variational problem
         self._V = _fem.functionspace(mesh, v_el)
