@@ -124,6 +124,7 @@ class Projector():
             self.assemble_rhs()
 
         self._ksp.solve(self._b.vector, self._x.vector)
+        self._x.x.scatter_forward()
         return int(self._ksp.getConvergedReason())
 
     @property
