@@ -54,6 +54,7 @@ import ufl
 # We add some arbitrary data to the variables `dt`, `nu`, `u_1` and `u_ab`,
 # as we are not solving a full problem here.
 
+
 def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
     V = dolfinx.fem.functionspace(mesh, ("Lagrange", int(P)))
     dt = 0.5

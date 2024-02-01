@@ -167,7 +167,7 @@ class FractionalStep_AB_CN():
                 shape=(mesh.geometry.dim,))
         except TypeError:
             v_el = u_element
-        try: 
+        try:
             p_family = basix.finite_element.string_to_family(p_element[0], cellname)
             p_el = basix.ufl.element(
                 p_family, cellname, p_element[1], basix.LagrangeVariant.gll_warped)

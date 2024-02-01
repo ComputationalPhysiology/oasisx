@@ -78,7 +78,7 @@ class Projector():
         self._ksp.setOperators(self._A)
 
         # Set PETSc options
-        prefix = f"oasis_projector"
+        prefix = "oasis_projector"
         opts = _petsc.Options()  # type: ignore
         opts.prefixPush(prefix)
         self._ksp.setOptionsPrefix(prefix)
