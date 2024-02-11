@@ -154,10 +154,9 @@ class FractionalStep_AB_CN():
 
         v_el = basix.ufl.element(
             v_family, cellname, u_element[1], basix.LagrangeVariant.gll_warped,
-            shape=(mesh.geometry.dim,), gdim=mesh.geometry.dim)
+            shape=(mesh.geometry.dim,))
         p_el = basix.ufl.element(
-            p_family, cellname, p_element[1], basix.LagrangeVariant.gll_warped,
-            gdim=mesh.geometry.dim)
+            p_family, cellname, p_element[1], basix.LagrangeVariant.gll_warped)
 
         # Initialize velocity functions for variational problem
         self._V = _fem.functionspace(mesh, v_el)
