@@ -23,7 +23,7 @@ def test_projector():
 
     # Create gradient projector
     el = basix.ufl.element("DG", mesh.topology.cell_name(), 1,
-                           shape=(mesh.geometry.dim, ), gdim=mesh.geometry.dim)
+                           shape=(mesh.geometry.dim, ))
     W = dolfinx.fem.functionspace(mesh, el)
     petsc_options = {"ksp_type": "preonly", "pc_type": "lu",
                      "pc_factor_mat_solver_type": "mumps"}
