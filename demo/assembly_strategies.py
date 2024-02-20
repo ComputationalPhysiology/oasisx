@@ -26,16 +26,17 @@
 # We start by importing the necessary modules
 
 
-import seaborn
-import pandas
-import dolfinx
-import dolfinx.fem.petsc
 from typing import Optional
+
 from mpi4py import MPI
 from petsc4py import PETSc
-import ufl
-import numpy as np
 
+import dolfinx
+import dolfinx.fem.petsc
+import numpy as np
+import pandas
+import seaborn
+import ufl
 
 # We define a function, that takes in a mesh, the order `P` of the Lagrange function space for the
 # scalar component of the velocity field, the number of times we should time the assembly, and
@@ -52,6 +53,7 @@ import numpy as np
 #
 # We add some arbitrary data to the variables `dt`, `nu`, `u_1` and `u_ab`,
 # as we are not solving a full problem here.
+
 
 def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
     V = dolfinx.fem.functionspace(mesh, ("Lagrange", int(P)))
@@ -80,9 +82,9 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
     convection_form = dolfinx.fem.form(convection, jit_options=jit_options)
 
     # Compile form for vector assembly (action)
-    dt_inv = dolfinx.fem.Constant(mesh, 1./dt)
+    dt_inv = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(1./dt))
     dt_inv.name = "dt_inv"
-    nu_c = dolfinx.fem.Constant(mesh, nu)
+    nu_c = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(nu))
     nu_c.name = "nu"
     lhs = dt_inv * mass - 0.5 * nu_c * stiffness - 0.5*convection
     lhs = dolfinx.fem.form(ufl.action(lhs, u_1), jit_options=jit_options)

@@ -1,7 +1,8 @@
+import logging
+
 from .bcs import DirichletBC, LocatorMethod, PressureBC
 from .fracstep import FractionalStep_AB_CN
 from .function import Projector
-import logging
 
 logging.basicConfig()
 logger = logging.getLogger("oasisx")

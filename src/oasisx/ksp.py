@@ -3,10 +3,12 @@
 # This file is part of Oasisx
 # SPDX-License-Identifier:    MIT
 
-from petsc4py import PETSc as _PETSc
-import dolfinx.fem as _fem
 import typing
+
 from mpi4py import MPI
+from petsc4py import PETSc as _PETSc
+
+import dolfinx.fem as _fem
 import numpy as np
 
 
@@ -45,6 +47,8 @@ class KSPSolver:
             opts[k] = v
         opts.prefixPop()
         self._ksp.setFromOptions()
+        for opt in opts.getAll().keys():
+            del opts[opt]
 
     def setOptions(self, op: typing.Union[_PETSc.Mat, _PETSc.Vec]):    # type: ignore
         prefix = self._ksp.getOptionsPrefix()

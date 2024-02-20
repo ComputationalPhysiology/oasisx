@@ -5,14 +5,17 @@
 
 
 from enum import Enum
-from typing import Callable, Optional, Tuple, Union, List
-from dolfinx import default_scalar_type
+from typing import Callable, List, Optional, Tuple, Union
+
+from petsc4py import PETSc as _PETSc
+
 import dolfinx.fem as _fem
 import dolfinx.mesh as _dmesh
 import numpy as np
 import numpy.typing as npt
-from petsc4py import PETSc as _PETSc
 import ufl
+from dolfinx import default_scalar_type
+
 __all__ = ["DirichletBC", "PressureBC", "LocatorMethod"]
 
 

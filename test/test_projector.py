@@ -3,13 +3,14 @@
 # This file is part of Oasisx
 # SPDX-License-Identifier:    MIT
 
-from oasisx import Projector
-
-import dolfinx
-import basix.ufl
-import ufl
 from mpi4py import MPI
+
+import basix.ufl
+import dolfinx
 import numpy as np
+import ufl
+
+from oasisx import Projector
 
 
 def test_projector():

@@ -31,6 +31,9 @@
 import time
 import typing
 
+from mpi4py import MPI
+from petsc4py import PETSc
+
 import dolfinx
 import dolfinx.fem.petsc
 import matplotlib.pyplot as plt
@@ -38,8 +41,6 @@ import numpy as np
 import pandas
 import seaborn
 import ufl
-from mpi4py import MPI
-from petsc4py import PETSc
 
 # -
 
@@ -81,9 +82,9 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
     convection_form = dolfinx.fem.form(convection, jit_options=jit_options)
 
     # Compile form for vector assembly (action)
-    dt_inv = dolfinx.fem.Constant(mesh, 1./dt)
+    dt_inv = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(1./dt))
     dt_inv.name = "dt_inv"
-    nu_c = dolfinx.fem.Constant(mesh, nu)
+    nu_c = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(nu))
     nu_c.name = "nu"
     rhs = dt_inv * mass - 0.5 * nu_c * stiffness - 0.5*convection
     rhs_form = dolfinx.fem.form(ufl.action(rhs, u_1), jit_options=jit_options)

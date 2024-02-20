@@ -5,9 +5,10 @@
 
 from typing import List, Optional
 
+from petsc4py import PETSc as _petsc
+
 import dolfinx.fem
 import ufl
-from petsc4py import PETSc as _petsc
 
 
 class Projector():
@@ -46,7 +47,7 @@ class Projector():
 
     def __init__(self, function: ufl.core.expr.Expr,
                  space: dolfinx.fem.FunctionSpace,
-                 bcs: List[dolfinx.fem.DirichletBC],
+                 bcs: Optional[List[dolfinx.fem.DirichletBC]] = None,
                  petsc_options: Optional[dict] = None,
                  jit_options: Optional[dict] = None,
                  form_compiler_options: Optional[dict] = None,
@@ -61,6 +62,7 @@ class Projector():
         a = ufl.inner(u, v) * ufl.dx(metadata=metadata)
         self._lhs = dolfinx.fem.form(a, jit_options=jit_options,
                                      form_compiler_options=form_compiler_options)
+        bcs = [] if bcs is None else bcs
         self._A = dolfinx.fem.petsc.assemble_matrix(self._lhs, bcs=bcs)
         self._A.assemble()
 
@@ -70,16 +72,17 @@ class Projector():
                                      form_compiler_options=form_compiler_options)
         self._x = dolfinx.fem.Function(space)
         self._b = dolfinx.fem.Function(space)
-        self._bcs = bcs
+        self._bcs = [] if bcs is None else bcs
 
         # Create Krylov Subspace solver
         self._ksp = _petsc.KSP().create(space.mesh.comm)  # type: ignore
         self._ksp.setOperators(self._A)
 
         # Set PETSc options
-        prefix = f"oasis_projector_{id(self)}"
+        prefix = "oasis_projector"
         opts = _petsc.Options()  # type: ignore
         opts.prefixPush(prefix)
+        self._ksp.setOptionsPrefix(prefix)
         for k, v in petsc_options.items():
             opts[k] = v
         opts.prefixPop()
@@ -91,19 +94,27 @@ class Projector():
         self._b.vector.setOptionsPrefix(prefix)
         self._b.vector.setFromOptions()
 
+        for opt in opts.getAll().keys():
+            del opts[opt]
+
+        # Setup preconditioner
+        self._ksp.getPC().setUp()
+
     def assemble_rhs(self):
         """
         Update RHS by re-assembling
         """
         self._b.x.array[:] = 0.
         dolfinx.fem.petsc.assemble_vector(self._b.vector, self._rhs)
-        dolfinx.fem.petsc.apply_lifting(
-            self._b.vector, [self._lhs], bcs=[self._bcs])
+        if len(self._bcs) > 0:
+            dolfinx.fem.petsc.apply_lifting(
+                self._b.vector, [self._lhs], bcs=[self._bcs])
         self._b.x.scatter_reverse(dolfinx.cpp.la.InsertMode.add)
-        dolfinx.fem.petsc.set_bc(self._b.vector, self._bcs)
+        if len(self._bcs) > 0:
+            dolfinx.fem.petsc.set_bc(self._b.vector, self._bcs)
         self._b.x.scatter_forward()
 
-    def solve(self, assemble_rhs: bool = True):
+    def solve(self, assemble_rhs: bool = True) -> int:
         """
         Compute projection using PETSc a KSP solver
 
@@ -114,6 +125,8 @@ class Projector():
             self.assemble_rhs()
 
         self._ksp.solve(self._b.vector, self._x.vector)
+        self._x.x.scatter_forward()
+        return int(self._ksp.getConvergedReason())
 
     @property
     def x(self):

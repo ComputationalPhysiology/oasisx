@@ -19,7 +19,7 @@ $$
 where $\mathbf{u} = (u_1(\mathbf{x}, t), \dots, u_d(\mathbf{x}, t))$ is the velocity vector, $\nu$ the kinematic viscosity, $p(\mathbf{x}, t)$ the fluid pressure and $\mathbf{f}(\mathbf{x}, t)$ are the volumetric forces. The fluid density is incorporated with the pressure $p$.
 We use the a pseudo-traction boundary condition on $\partial\Omega_N$, where $h=0$ corresponds to the natural boundary condition. We use $\frac{\partial{\cdot}}{\partial \mathbf{n}}= \mathbf{n}^T(\nabla\cdot)$.
 
-We assume that $\partial\Omega=\partial\Omega_N\cup \partial \Omega_D$,  $\partial \Omega_N \cap \partial \Omega_D = \emptyset$. If $\partial \Omega_N = \emptyset$ we have the additional constraints 
+We assume that $\partial\Omega=\partial\Omega_N\cup \partial \Omega_D$, $\partial \Omega_N \cap \partial \Omega_D = \emptyset$. If $\partial \Omega_N = \emptyset$ we have the additional constraints
 
 $$
 \begin{align}
@@ -31,6 +31,7 @@ $$
 For the initial condition, we have that $\mathbf{u}(x, 0)=\mathbf{u}_0$, where $\nabla \cdot \mathbf{u}_0=0$ and $\mathbf{u}_0\cdot \mathbf{n} = \mathbf{g}(x,0)\cdot \mathbf{n}$.
 
 ## Stokes equation
+
 The following section will follow a similar derivation as done by Timmermans {cite}`timmermans1996`.
 We start by considering a simpler problem, namely solving
 
@@ -53,7 +54,8 @@ $$
 \frac{\nu}{2}\frac{\partial (\mathbf{u}^n + \mathbf{u}^{n-1})}{\partial n} - p^{n-\frac{1}{2}}\mathbf{n} &= \mathbf{h}^{n-\frac{1}{2}}&& \text{ on } \partial \Omega_N
 \end{align}
 $$
-However, we do not want to solve this coupled set of equations, and instead solve for $\mathbf{u}^n$ and $\mathbf{p}^{n-\frac{1}{2}}$ in a segergated fashion.
+
+However, we do not want to solve this coupled set of equations, and instead solve for $\mathbf{u}^n$ and $\mathbf{p}^{n-\frac{1}{2}}$ in a segregated fashion.
 We start by selecting a $p^\star$ such that $p^\star = p^{n+\frac{1}{2}} + \mathcal{O}(\delta t)$.
 A common choice is to use $p^\star= p^{n-\frac{1}{2}}$.
 
@@ -83,7 +85,7 @@ $$
 \end{align}
 $$
 
-We use the fact that $\nabla \cdot \mathbf{u}^n = 0$ and the identitiy  $\nabla \cdot \Delta \mathbf{T} = \nabla \cdot \nabla (\nabla \cdot \mathbf{T})- \nabla \cdot (\nabla \times(\nabla \times \mathbf{T}) ) = - \Delta (\nabla \cdot \mathbf{T})$ as $\nabla \cdot (\nabla \times L) = 0 \quad \forall L$ we can simplify our equation
+We use the fact that $\nabla \cdot \mathbf{u}^n = 0$ and the identitiy $\nabla \cdot \Delta \mathbf{T} = \nabla \cdot \nabla (\nabla \cdot \mathbf{T})- \nabla \cdot (\nabla \times(\nabla \times \mathbf{T}) ) = - \Delta (\nabla \cdot \mathbf{T})$ as $\nabla \cdot (\nabla \times L) = 0 \quad \forall L$ we can simplify our equation
 
 $$
 \begin{align}
@@ -102,18 +104,20 @@ Setting $\phi = p^{n-\frac{1}{2}} - p^* + \frac{\nu}{2}\nabla \cdot \mathbf{u}^\
 We can solve this Poisson-type problem for $\phi$.
 We can then project the pressure $p^{n-\frac{1}{2}}=p^*+\phi-\frac{\nu}{2}\nabla \cdot \mathbf{u}^*$.
 
-To get an expression for $\mathbf{u}^n$ we use that $\mathbf{u}^n = \mathbf{u}^\star + D$ and that 
+To get an expression for $\mathbf{u}^n$ we use that $\mathbf{u}^n = \mathbf{u}^\star + D$ and that
 
 $$
 \begin{align}
-\nabla \cdot \mathbf{u}^{n+1} &= 0\\ 
-&= \nabla \cdot \mathbf{u}^\star + \nabla \cdot D 
+\nabla \cdot \mathbf{u}^{n+1} &= 0\\
+&= \nabla \cdot \mathbf{u}^\star + \nabla \cdot D
 \end{align}
 $$
+
 From the pressure correction equation we have that $\nabla \cdot \mathbf{u}^\star = \Delta t \Delta \phi= \Delta t \nabla \cdot \nabla \phi$. Thus by setting $D=-\Delta t \nabla \phi$ we have that $\mathbf{u}^{n+1}$ is divergence free.
 
 Concluding we solve the following equations
-### Tentative velocity 
+
+### Tentative velocity
 
 $$
 \begin{align}
@@ -139,7 +143,8 @@ $$
 $$
 
 ### Essential boundary conditions
-We note that we have not specified boundary conditons for the pressure correction.
+
+We note that we have not specified boundary conditions for the pressure correction.
 
 Assume that $\partial \Omega_N=\emptyset$, we then use that $u^*=\mathbf{g}^n$ on the whole boundary, and the flux condition of $\mathbf{g}$ over $\partial\Omega$.
 We integrate the pressure correction equation over $\Omega$ (using the divergence theorem)
@@ -147,18 +152,21 @@ We integrate the pressure correction equation over $\Omega$ (using the divergenc
 $$
 \begin{align}
 \int_\Omega \nabla \cdot \nabla \phi~\mathrm{dx} &= \int_{\partial\Omega} \frac{\partial \phi}{\partial n}~\mathrm{d}s\\
-&= \int_\Omega \frac{1}{\Delta t} \nabla \cdot \mathbf{u}^* = \frac{1}{\Delta t}\int_{\partial\Omega}\mathbf{u}^*\cdot \mathbf{n}~\mathrm{d}s = 
+&= \int_\Omega \frac{1}{\Delta t} \nabla \cdot \mathbf{u}^* = \frac{1}{\Delta t}\int_{\partial\Omega}\mathbf{u}^*\cdot \mathbf{n}~\mathrm{d}s =
 \frac{1}{\Delta t}\int_{\partial\Omega}g^n\cdot \mathbf{n}~\mathrm{d}s = 0
 \end{align}
 $$
-Thus we use that $\frac{\partial \phi}{\partial n}=0$  on $\partial \Omega$.
 
-It has been discussed in many papers that one could use $\phi=0$ on $\partial\Omega_D$, see for instance  chapter 10 of {cite}`guermond2006`. In {cite}`guermond2005` it is shown that by using the rotational form of the equations (i.e. including the divergence term in $\phi$) yield reasonable error estimates.
+Thus we use that $\frac{\partial \phi}{\partial n}=0$ on $\partial \Omega$.
+
+It has been discussed in many papers that one could use $\phi=0$ on $\partial\Omega_D$, see for instance chapter 10 of {cite}`guermond2006`. In {cite}`guermond2005` it is shown that by using the rotational form of the equations (i.e. including the divergence term in $\phi$) yield reasonable error estimates.
+
+However, if $\partial \Omega_N\neq\emptyset$, then we need to consider the open boundary conditions for the pressure correction schemes, see the next section or {cite}`guermond2004rotational`
 
 Also note that we have lost control of the tangential part of the corrected velocity, as we do not have that $\mathbf{u}^n\cdot \mathbf{t} = \mathbf{u}^\star \cdot \mathbf{t} - \Delta t \nabla \phi \cdot \mathbf{t}\neq\mathbf{g}^n$ as $\nabla \phi \cdot \mathbf{t}\neq 0$.
 
-
 ## Navier-Stokes equation
+
 We split these coupled equations into a set of simpler equations by using a fractional step method, described in for instance {cite}`simo-1994`. We arrive at the following scheme
 
 $$
@@ -175,11 +183,21 @@ $$
 
 where $u_k^n$ is the $k$th component of the velocity vector at time $t^n$ $\phi = p^{n-\frac{1}{2}}-p^\star$ is a pressure correction, $p^\star$ the tentative pressure.
 
-Using $\phi=0$ on $\partial\Omega_n$ can cause locking {cite}`poux2011` ,{cite}`guermond2006` (Chapter 10.4), i.e. $p^{n+\frac{1}{2}}\vert_{\partial\Omega_N}=p^*\vert_{\partial\Omega_N}$.
+Using $\phi=0$ on $\partial\Omega_n$ can cause locking {cite}`poux2011` ,{cite}`guermond2006`, i.e. $p^{n+\frac{1}{2}}\vert_{\partial\Omega_N}=p^*\vert_{\partial\Omega_N}$.
+We thus add an extra term
+
+$$
+\begin{align}
+\phi_= p^{n-\frac{1}{2}}-p^\star - \xi \nu \nabla \cdot u_k^{I}
+\end{align}
+$$
+
+where $0<\xi\leq 1$ as shown in {cite}`guermond2004rotational` and {cite}`timmermans1996`.
 
 The first equation is solved for the tentative velocity $u_k^I$, where $\tilde u_k=\frac{1}{2}(u_k^I+u_k^{n-1})$, and the convective term $B_k^{n-\frac{1}{2}}=\mathbf{\bar{u}}\cdot \nabla \tilde u_k = (1.5 \mathbf{u}^{n-1}-0.5\mathbf{u}^{n-2})\cdot \nabla \tilde u_k$ is the implicit Adams-Bashforth discretization.
 
 ## Implementational aspects
+
 We start by considering the tentative velocity step.
 
 We use integration by parts and multiplication with a test function $v$ to obtain
@@ -219,19 +237,20 @@ We also note that $M$ and $K$ are time independent, and thus only $C$ has to be 
 
 A difference between Oasis and the current implementation is that we implement the pressure condition as the natural boundary condition, and any supplied pressure $h$ will be part of the right hand side of the tentative velocity equation.
 
-In Oasis, the choice of not including this term ment that one would have to re-assemble 
+In Oasis, the choice of not including this term ment that one would have to re-assemble
 $\int_\Omega \nabla_k p^*v~\mathrm{d}x$ in every inner iteration.
 In the current implementation, we have that $\int_\Omega p^*\nabla_k v~\mathrm{d}x + \int_{\partial\Omega_N}h^{n-\frac{1}{2}}v~\mathrm{d}s$ has to be reassembled. As the boundary integral $\partial\Omega_N$ usually is small compared to the volume of the computational domain, this is a minimal increase in assembly time.
 
-
 ### Matrix-vector product
+
 An algorithm for computing the matrix vector product follows
+
 ```python
 M = assemble_mass_matrix()
 K = assemble_stiffness_matrix()
 for i in range(num_time_steps):
     # Compute convecting velocity for C
-    for j in range(components): 
+    for j in range(components):
         bar_u[j][:] = 0
         bar_u[j]+= 1.5 * u_1[j]
         bar_u[j]+= -0.5 * u_2[j]
@@ -248,24 +267,27 @@ for i in range(num_time_steps):
     for j in range(components):
         b[j] = body_forces
         b_tmp[j] = A * u_1[j]
-        b[j]+= b_tmp[j]    
+        b[j]+= b_tmp[j]
 
     # Reset A for LHS
     A.scale(-1)
     A.xpy(2/dt, M)
 
-    # 
+    #
 ```
+
 where $u_i$, $i=1,2$ is the solution at time-step $n-i$.
 
 ### Action method
+
 As the matrix $A$ is sparse and potentially large (millions of degrees of freedom), we consider assembling `b` directly.
+
 ```python
 M = assemble_mass_matrix()
 K = assemble_stiffness_matrix()
 for i in range(num_time_steps):
     # Compute convecting veloctiy for C
-    for j in range(components): 
+    for j in range(components):
         bar_u[j][:] = 0
         bar_u[j]+= 1.5 * u_1[j]
         bar_u[j]+= -0.5 * u_2[j]
@@ -288,6 +310,7 @@ for i in range(num_time_steps):
 In the next section, we will consider the performance differences for these two strategies
 
 **References**
+
 ```{bibliography}
 :filter: docname in docnames
 ```
