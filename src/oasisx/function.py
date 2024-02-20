@@ -62,6 +62,7 @@ class Projector():
         a = ufl.inner(u, v) * ufl.dx(metadata=metadata)
         self._lhs = dolfinx.fem.form(a, jit_options=jit_options,
                                      form_compiler_options=form_compiler_options)
+        bcs = [] if bcs is None else bcs
         self._A = dolfinx.fem.petsc.assemble_matrix(self._lhs, bcs=bcs)
         self._A.assemble()
 

@@ -161,18 +161,18 @@ class FractionalStep_AB_CN():
         self._mesh = mesh
         cellname = mesh.ufl_cell().cellname()
         try:
-            v_family = basix.finite_element.string_to_family(u_element[0], cellname)
+            v_family = basix.finite_element.string_to_family(u_element[0], cellname)  # type: ignore
             v_el = basix.ufl.element(
-                v_family, cellname, u_element[1], basix.LagrangeVariant.gll_warped,
+                v_family, cellname, u_element[1], basix.LagrangeVariant.gll_warped,  # type: ignore
                 shape=(mesh.geometry.dim,))
         except TypeError:
-            v_el = u_element
+            v_el = u_element  # type: ignore
         try:
-            p_family = basix.finite_element.string_to_family(p_element[0], cellname)
+            p_family = basix.finite_element.string_to_family(p_element[0], cellname)  # type: ignore
             p_el = basix.ufl.element(
-                p_family, cellname, p_element[1], basix.LagrangeVariant.gll_warped)
+                p_family, cellname, p_element[1], basix.LagrangeVariant.gll_warped)  # type: ignore
         except TypeError:
-            p_el = p_element
+            p_el = p_element  # type: ignore
 
         # Initialize velocity functions for variational problem
         self._V = _fem.functionspace(mesh, v_el)
@@ -551,8 +551,11 @@ class FractionalStep_AB_CN():
             self._dp.x.array[:] -= phi_avg
 
         if self._projector_p is not None:
-            assert nu is not None
-            self._nu.value = nu
+            if nu is not None and self._nu is not None:
+                self._nu.value = nu
+            else:
+                raise RuntimeWarning(
+                    "Kinematic viscosity not set for rotational pressure correction")
             error = self._projector_p.solve(assemble_rhs=True)
             assert (error > 0)
             self._ps.x.array[:] = self._projector_p.x.x.array[:]
