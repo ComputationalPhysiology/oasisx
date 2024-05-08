@@ -62,8 +62,8 @@ class KSPSolver:
     def setOperators(
         self,
         A: _PETSc.Mat,  # type: ignore
-        P: typing.Optional[_PETSc.Mat] = None,
-    ):  # type: ignore
+        P: typing.Optional[_PETSc.Mat] = None,  # type: ignore
+    ):
         if P is None:
             self._ksp.setOperators(A)
         else:

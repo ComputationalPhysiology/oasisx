@@ -6,8 +6,8 @@ runs:
     - name: Flake8 code
       shell: bash -el {0}
       run: |
-        python3 -m ruff format --check .
-        python3 -m ruf check .
+        ruff format --check .
+        ruff check .
 
     - name: Mypy check
       if: always()

@@ -37,8 +37,9 @@ def gather_PETScMatrix(
             offsets = ai[1:] + ai_cum[-1]
             ai_cum.extend(offsets)
         return scipy.sparse.csr_matrix(
-            (np.hstack(av_all), np.hstack(aj_all), ai_cum), shape=A.getSize()
-        )  # type: ignore
+            (np.hstack(av_all), np.hstack(aj_all), ai_cum),  # type: ignore
+            shape=A.getSize(),
+        )
 
 
 def create_tentative_forms(
