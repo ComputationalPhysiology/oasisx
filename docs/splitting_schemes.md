@@ -85,7 +85,7 @@ $$
 \end{align}
 $$
 
-We use the fact that $\nabla \cdot \mathbf{u}^n = 0$ and the identitiy $\nabla \cdot \Delta \mathbf{T} = \nabla \cdot \nabla (\nabla \cdot \mathbf{T})- \nabla \cdot (\nabla \times(\nabla \times \mathbf{T}) ) = \Delta (\nabla \cdot \mathbf{T})$ as $\nabla \cdot (\nabla \times L) = 0 \quad \forall L$ we can simplify our equation
+We use the fact that $\nabla \cdot \mathbf{u}^n = 0$ and the identitiy $\nabla \cdot \Delta \mathbf{T} = \nabla \cdot \nabla (\nabla \cdot \mathbf{T})- \nabla \cdot (\nabla \times(\nabla \times \mathbf{T}) ) =# \Delta (\nabla \cdot \mathbf{T})$ as $\nabla \cdot (\nabla \times L) = 0 \quad \forall L$ we can simplify our equation
 
 $$
 \begin{align}
@@ -108,12 +108,12 @@ To get an expression for $\mathbf{u}^n$ we use that $\mathbf{u}^n = \mathbf{u}^\
 
 $$
 \begin{align}
-\nabla \cdot \mathbf{u}^{n+1} &= 0\\
+\nabla \cdot \mathbf{u}^{n} &= 0\\
 &= \nabla \cdot \mathbf{u}^\star + \nabla \cdot D
 \end{align}
 $$
 
-From the pressure correction equation we have that $\nabla \cdot \mathbf{u}^\star = \Delta t \Delta \phi= \Delta t \nabla \cdot \nabla \phi$. Thus by setting $D=-\Delta t \nabla \phi$ we have that $\mathbf{u}^{n+1}$ is divergence free.
+From the pressure correction equation we have that $\nabla \cdot \mathbf{u}^\star = \Delta t \Delta \phi= \Delta t \nabla \cdot \nabla \phi$. Thus by setting $D=-\Delta t \nabla \phi$ we have that $\mathbf{u}^{n}$ is divergence free.
 
 Concluding we solve the following equations
 
