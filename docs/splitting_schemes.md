@@ -85,7 +85,7 @@ $$
 \end{align}
 $$
 
-We use the fact that $\nabla \cdot \mathbf{u}^n = 0$ and the identitiy $\nabla \cdot \Delta \mathbf{T} = \nabla \cdot \nabla (\nabla \cdot \mathbf{T})- \nabla \cdot (\nabla \times(\nabla \times \mathbf{T}) ) = - \Delta (\nabla \cdot \mathbf{T})$ as $\nabla \cdot (\nabla \times L) = 0 \quad \forall L$ we can simplify our equation
+We use the fact that $\nabla \cdot \mathbf{u}^n = 0$ and the identitiy $\nabla \cdot \Delta \mathbf{T} = \nabla \cdot \nabla (\nabla \cdot \mathbf{T})- \nabla \cdot (\nabla \times(\nabla \times \mathbf{T}) ) = \Delta (\nabla \cdot \mathbf{T})$ as $\nabla \cdot (\nabla \times L) = 0 \quad \forall L$ we can simplify our equation
 
 $$
 \begin{align}
