@@ -48,16 +48,16 @@ We use a Crank-Nicolson discretization in time, and thus want to solve
 
 $$
 \begin{align}
-\frac{\mathbf{u}^n-\mathbf{u}^{n-1}}{\Delta t} - \frac{\nu}{2}\Delta(u^n+u^{n-1}) +\nabla p^{n+\frac{1}{2}} &= f^{n-\frac{1}{2}} && \text{ in } \Omega \\
+\frac{\mathbf{u}^n-\mathbf{u}^{n-1}}{\Delta t} - \frac{\nu}{2}\Delta(\mathbf{u}^n+\mathbf{u}^{n-1}) +\nabla p^{n-\frac{1}{2}} &= f^{n-\frac{1}{2}} && \text{ in } \Omega \\
 \nabla \cdot u^n &= 0 && \text{ in } \Omega \\
 \mathbf{u}^n &=\mathbf{g}^n && \text{ on } \partial \Omega_D\\
 \frac{\nu}{2}\frac{\partial (\mathbf{u}^n + \mathbf{u}^{n-1})}{\partial n} - p^{n-\frac{1}{2}}\mathbf{n} &= \mathbf{h}^{n-\frac{1}{2}}&& \text{ on } \partial \Omega_N
 \end{align}
 $$
 
-However, we do not want to solve this coupled set of equations, and instead solve for $\mathbf{u}^n$ and $\mathbf{p}^{n-\frac{1}{2}}$ in a segregated fashion.
-We start by selecting a $p^\star$ such that $p^\star = p^{n+\frac{1}{2}} + \mathcal{O}(\delta t)$.
-A common choice is to use $p^\star= p^{n-\frac{1}{2}}$.
+However, we do not want to solve this coupled set of equations, and instead solve for $\mathbf{u}^n$ and $p^{n-\frac{1}{2}}$ in a segregated fashion.
+We start by selecting a $p^\star$ such that $p^\star = p^{n-\frac{1}{2}} + \mathcal{O}(\Delta t)$.
+A common choice is to use $p^\star= p^{n-\frac{3}{2}}$.
 
 We next solve the following problem
 
