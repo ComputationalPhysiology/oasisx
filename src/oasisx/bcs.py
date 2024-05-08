@@ -23,6 +23,7 @@ class LocatorMethod(Enum):
     """
     Search methods for Dirichlet BCs
     """
+
     GEOMETRICAL = 1
     TOPOLOGICAL = 2
 
@@ -31,7 +32,7 @@ LocatorMethod.TOPOLOGICAL.__doc__ = "Topogical search for dofs"
 LocatorMethod.GEOMETRICAL.__doc__ = "Geometrical search for dofs"
 
 
-class DirichletBC():
+class DirichletBC:
     """
     Create a Dirichlet boundary condition based on topological or geometrical info from the mesh
     This boundary condtion should only be used for velocity function spaces.
@@ -65,25 +66,35 @@ class DirichletBC():
 
             bc = DirchletBC(dolfinx.fem.Constant(mesh, 3.), lambda x: np.isclose(x[0]))
     """
+
     _method: LocatorMethod
     _entities: npt.NDArray[np.int32]  # List of entities local to process
     _e_dim: int  # Dimension of entities
 
     _locator: Callable[[npt.NDArray[np.float64]], npt.NDArray[np.bool_]]
     _dofs: npt.NDArray[np.int32]
-    _value: Union[np.float64, _fem.Constant, Callable[[
-        npt.NDArray[np.float64]], npt.NDArray[np.float64]]]
+    _value: Union[
+        np.float64,
+        _fem.Constant,
+        Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+    ]
     _bc: _fem.DirichletBC
     _u: Optional[_fem.Function]
 
     __slots__ = tuple(__annotations__)
 
     def __init__(
-        self, value: Union[np.float64, _fem.Constant,
-                           Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]],
+        self,
+        value: Union[
+            np.float64,
+            _fem.Constant,
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+        ],
         method: LocatorMethod,
-        marker: Union[Tuple[_dmesh.MeshTags, np.int32],
-                      Callable[[npt.NDArray[np.float64]], npt.NDArray[np.bool_]]]
+        marker: Union[
+            Tuple[_dmesh.MeshTags, np.int32],
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.bool_]],
+        ],
     ):
         if method == LocatorMethod.GEOMETRICAL:
             self._method = method
@@ -108,9 +119,7 @@ class DirichletBC():
             self._dofs = _fem.locate_dofs_topological(V, self._e_dim, self._entities)
 
     def create_bc(self, V: _fem.FunctionSpace):
-        """
-
-        """
+        """ """
         if not hasattr(self, "_dofs"):
             self._locate_dofs(V)
 
@@ -135,8 +144,7 @@ class DirichletBC():
         _fem.petsc.set_bc(x, [self._bc])
 
 
-class PressureBC():
-
+class PressureBC:
     """
     Create a Pressure boundary condition (natural bc) based on a set of facets of a
     mesh and some value.
@@ -182,20 +190,29 @@ class PressureBC():
             bc.create_bc(Q)
             # Update time in bc
             p.t = 1
-        """
+    """
 
     _subdomain_data: _dmesh.MeshTags
     _subdomain_id: Union[np.int32, Tuple[np.int32]]
-    _value: Union[np.float64, _fem.Constant,
-                  Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]
+    _value: Union[
+        np.float64,
+        _fem.Constant,
+        Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+    ]
     _u: _fem.Function
     _rhs: List[ufl.form.Form]
     _bc: _fem.DirichletBC
     __slots__ = tuple(__annotations__)
 
-    def __init__(self, value: Union[np.float64, _fem.Constant,
-                                    Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]],
-                 marker: Tuple[_dmesh.MeshTags, Union[np.int32, Tuple[np.int32]]]):
+    def __init__(
+        self,
+        value: Union[
+            np.float64,
+            _fem.Constant,
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+        ],
+        marker: Tuple[_dmesh.MeshTags, Union[np.int32, Tuple[np.int32]]],
+    ):
         self._subdomain_data, self._subdomain_id = marker
         self._value = value
 
@@ -212,8 +229,12 @@ class PressureBC():
         assert mesh.topology == self._subdomain_data.topology
         # Create pressure "Neumann" condition
         v = ufl.TestFunction(V)
-        ds = ufl.Measure("ds", domain=mesh, subdomain_data=self._subdomain_data,
-                         subdomain_id=self._subdomain_id)
+        ds = ufl.Measure(
+            "ds",
+            domain=mesh,
+            subdomain_data=self._subdomain_data,
+            subdomain_id=self._subdomain_id,
+        )
         n = ufl.FacetNormal(mesh)
         try:
             rhs = [self._value * n_i * v.dx(i) * ds for i, n_i in enumerate(n)]
@@ -228,9 +249,9 @@ class PressureBC():
 
         # Create homogenuous boundary condition for pressure correction eq
         boundary_facets = self._subdomain_data.find(self._subdomain_id)  # type: ignore
-        mesh.topology.create_connectivity(mesh.topology.dim-1, mesh.topology.dim)
-        dofs = _fem.locate_dofs_topological(Q, mesh.topology.dim-1, boundary_facets)
-        self._bc = _fem.dirichletbc(default_scalar_type(0.), dofs, Q)
+        mesh.topology.create_connectivity(mesh.topology.dim - 1, mesh.topology.dim)
+        dofs = _fem.locate_dofs_topological(Q, mesh.topology.dim - 1, boundary_facets)
+        self._bc = _fem.dirichletbc(default_scalar_type(0.0), dofs, Q)
 
     def update_bc(self):
         """

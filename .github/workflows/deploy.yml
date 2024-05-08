@@ -3,7 +3,7 @@ name: Publish documentation
 on:
   # Runs on pushes targeting the default branch
   push:
-    branches: ["main"]
+    branches: ["release"]
 
   schedule:
     - cron: "0 8 * * *"
@@ -22,9 +22,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  linting:
-    uses: ./.github/workflows/linting.yml
-
   build-docs:
     uses: ./.github/workflows/docs.yml
 

@@ -64,7 +64,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
 
     # Solution from previous time step
     u_1 = dolfinx.fem.Function(V)
-    u_1.interpolate(lambda x: np.sin(x[0])*np.cos(x[1]))
+    u_1.interpolate(lambda x: np.sin(x[0]) * np.cos(x[1]))
 
     # Define variational forms
     mass = ufl.inner(u, v) * ufl.dx
@@ -82,11 +82,11 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
     convection_form = dolfinx.fem.form(convection, jit_options=jit_options)
 
     # Compile form for vector assembly (action)
-    dt_inv = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(1./dt))
+    dt_inv = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(1.0 / dt))
     dt_inv.name = "dt_inv"
     nu_c = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(nu))
     nu_c.name = "nu"
-    lhs = dt_inv * mass - 0.5 * nu_c * stiffness - 0.5*convection
+    lhs = dt_inv * mass - 0.5 * nu_c * stiffness - 0.5 * convection
     lhs = dolfinx.fem.form(ufl.action(lhs, u_1), jit_options=jit_options)
 
     # Assemble time independent matrices
@@ -128,8 +128,8 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
         # Do mat-vec operations
         with dolfinx.common.Timer(f"~{P} {i} Matvec strategy") as _:
             A.scale(-0.5)
-            A.axpy(1./dt, M)
-            A.axpy(-0.5*nu, K)
+            A.axpy(1.0 / dt, M)
+            A.axpy(-0.5 * nu, K)
             A.mult(u_1.vector, b.vector)
             b.x.scatter_forward()
 
@@ -154,27 +154,39 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
 # We solve the problem on a unit cube that is split into tetrahedras with `Nx`,`Ny` and `Nx`
 # tetrahera in the x, y and z-direction respectively.
 
-def run_parameter_sweep(Nx: int, Ny: int, Nz: int, repeats: int, min_degree: int,
-                        max_degree: int) -> dict:
+
+def run_parameter_sweep(
+    Nx: int, Ny: int, Nz: int, repeats: int, min_degree: int, max_degree: int
+) -> dict:
     # Information regarding optimization flags can be found at:
     # https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html
     jit_options = {"cffi_extra_compile_args": ["-march=native", "-O3"]}
 
     mesh = dolfinx.mesh.create_unit_cube(MPI.COMM_WORLD, Nx, Ny, Nz)
-    Ps = np.arange(min_degree, max_degree+1, dtype=np.int32)
+    Ps = np.arange(min_degree, max_degree + 1, dtype=np.int32)
     j = 0
     results = {}
     for i, P in enumerate(Ps):
         dof, matvec, action = assembly(mesh, P, repeats=repeats, jit_options=jit_options)
         for row in matvec:
             for process in row:
-                results[j] = {"P": P, "num_dofs": dof, "method":
-                              "matvec", "time (s)": process, "procs": MPI.COMM_WORLD.size}
+                results[j] = {
+                    "P": P,
+                    "num_dofs": dof,
+                    "method": "matvec",
+                    "time (s)": process,
+                    "procs": MPI.COMM_WORLD.size,
+                }
                 j += 1
         for row in action:
             for process in row:
-                results[j] = {"P": P, "num_dofs": dof, "method":
-                              "action", "time (s)": process, "procs": MPI.COMM_WORLD.size}
+                results[j] = {
+                    "P": P,
+                    "num_dofs": dof,
+                    "method": "action",
+                    "time (s)": process,
+                    "procs": MPI.COMM_WORLD.size,
+                }
                 j += 1
     return results
 
@@ -183,16 +195,26 @@ def run_parameter_sweep(Nx: int, Ny: int, Nz: int, repeats: int, min_degree: int
 
 # +
 
+
 def create_plot(results: dict, outfile: str):
     if MPI.COMM_WORLD.rank == 0:
         df = pandas.DataFrame.from_dict(results, orient="index")
-        df["label"] = "P" + df["P"].astype(str) + " " + \
-            df["num_dofs"].astype(str) + " \n Comms: " + df["procs"].astype(str)
-        plot = seaborn.catplot(data=df, kind="swarm",  x="label", y="time (s)", hue="method")
+        df["label"] = (
+            "P"
+            + df["P"].astype(str)
+            + " "
+            + df["num_dofs"].astype(str)
+            + " \n Comms: "
+            + df["procs"].astype(str)
+        )
+        plot = seaborn.catplot(data=df, kind="swarm", x="label", y="time (s)", hue="method")
         plot.set(yscale="log")
         import matplotlib.pyplot as plt
+
         plt.grid()
         plt.savefig(outfile)
+
+
 # -
 
 # We start by running the comparison for an increasing number of degrees of freedom on a fixed grid.

@@ -11,7 +11,7 @@ import dolfinx.fem
 import ufl
 
 
-class Projector():
+class Projector:
     """
     Projector for a given function.
     Solves Ax=b, where
@@ -33,6 +33,7 @@ class Projector():
         form_compiler_options: Options to pass to the form compiler
         metadata: Data to pass to the integration measure
     """
+
     # The mass matrix
     _A: _petsc.Mat  # type: ignore
     # The rhs vector
@@ -45,13 +46,16 @@ class Projector():
     _bcs: List[dolfinx.fem.DirichletBC]
     __slots__ = tuple(__annotations__)
 
-    def __init__(self, function: ufl.core.expr.Expr,
-                 space: dolfinx.fem.FunctionSpace,
-                 bcs: Optional[List[dolfinx.fem.DirichletBC]] = None,
-                 petsc_options: Optional[dict] = None,
-                 jit_options: Optional[dict] = None,
-                 form_compiler_options: Optional[dict] = None,
-                 metadata: Optional[dict] = None):
+    def __init__(
+        self,
+        function: ufl.core.expr.Expr,
+        space: dolfinx.fem.FunctionSpace,
+        bcs: Optional[List[dolfinx.fem.DirichletBC]] = None,
+        petsc_options: Optional[dict] = None,
+        jit_options: Optional[dict] = None,
+        form_compiler_options: Optional[dict] = None,
+        metadata: Optional[dict] = None,
+    ):
         petsc_options = {} if petsc_options is None else petsc_options
         jit_options = {} if jit_options is None else jit_options
         form_compiler_options = {} if form_compiler_options is None else form_compiler_options
@@ -60,16 +64,18 @@ class Projector():
         u = ufl.TrialFunction(space)
         v = ufl.TestFunction(space)
         a = ufl.inner(u, v) * ufl.dx(metadata=metadata)
-        self._lhs = dolfinx.fem.form(a, jit_options=jit_options,
-                                     form_compiler_options=form_compiler_options)
+        self._lhs = dolfinx.fem.form(
+            a, jit_options=jit_options, form_compiler_options=form_compiler_options
+        )
         bcs = [] if bcs is None else bcs
         self._A = dolfinx.fem.petsc.assemble_matrix(self._lhs, bcs=bcs)
         self._A.assemble()
 
         # Compile RHS form and create vector
         L = ufl.inner(function, v) * ufl.dx(metadata=metadata)
-        self._rhs = dolfinx.fem.form(L, jit_options=jit_options,
-                                     form_compiler_options=form_compiler_options)
+        self._rhs = dolfinx.fem.form(
+            L, jit_options=jit_options, form_compiler_options=form_compiler_options
+        )
         self._x = dolfinx.fem.Function(space)
         self._b = dolfinx.fem.Function(space)
         self._bcs = [] if bcs is None else bcs
@@ -104,11 +110,10 @@ class Projector():
         """
         Update RHS by re-assembling
         """
-        self._b.x.array[:] = 0.
+        self._b.x.array[:] = 0.0
         dolfinx.fem.petsc.assemble_vector(self._b.vector, self._rhs)
         if len(self._bcs) > 0:
-            dolfinx.fem.petsc.apply_lifting(
-                self._b.vector, [self._lhs], bcs=[self._bcs])
+            dolfinx.fem.petsc.apply_lifting(self._b.vector, [self._lhs], bcs=[self._bcs])
         self._b.x.scatter_reverse(dolfinx.cpp.la.InsertMode.add)
         if len(self._bcs) > 0:
             dolfinx.fem.petsc.set_bc(self._b.vector, self._bcs)
@@ -139,12 +144,11 @@ class Projector():
         self._x.vector.destroy()
 
 
-class LumpedProject():
+class LumpedProject:
     """Projector using a lumped mass matrix"""
+
     __slots__ = ["_form", "_petsc_options", "_bcs"]
 
     def __init__(self):
-        """
-
-        """
+        """ """
         raise NotImplementedError

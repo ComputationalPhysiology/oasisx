@@ -18,9 +18,11 @@ import ufl
 from oasisx import DirichletBC, FractionalStep_AB_CN, LocatorMethod, PressureBC
 
 
-def gather_PETScMatrix(A: PETSc.Mat,  # type: ignore
-                       comm: MPI.Comm,
-                       root: int = 0) -> scipy.sparse.csr_matrix:
+def gather_PETScMatrix(
+    A: PETSc.Mat,  # type: ignore
+    comm: MPI.Comm,
+    root: int = 0,
+) -> scipy.sparse.csr_matrix:
     """
     Given a distributed PETSc matrix, gather in on process 'root' in
     a scipy CSR matrix
@@ -35,16 +37,24 @@ def gather_PETScMatrix(A: PETSc.Mat,  # type: ignore
             offsets = ai[1:] + ai_cum[-1]
             ai_cum.extend(offsets)
         return scipy.sparse.csr_matrix(
-            (np.hstack(av_all), np.hstack(aj_all), ai_cum), shape=A.getSize())  # type: ignore
+            (np.hstack(av_all), np.hstack(aj_all), ai_cum), shape=A.getSize()
+        )  # type: ignore
 
 
-def create_tentative_forms(mesh: dolfinx.mesh.Mesh,
-                           el_u: Tuple[str, int],
-                           el_p: Tuple[str, int], dt: float, nu: float,
-                           f: Optional[npt.NDArray[np.float64]]) -> Tuple[ufl.Form, List[ufl.Form],
-                                                                          dolfinx.fem.Function,
-                                                                          dolfinx.fem.Function,
-                                                                          dolfinx.fem.Function]:
+def create_tentative_forms(
+    mesh: dolfinx.mesh.Mesh,
+    el_u: Tuple[str, int],
+    el_p: Tuple[str, int],
+    dt: float,
+    nu: float,
+    f: Optional[npt.NDArray[np.float64]],
+) -> Tuple[
+    ufl.Form,
+    List[ufl.Form],
+    dolfinx.fem.Function,
+    dolfinx.fem.Function,
+    dolfinx.fem.Function,
+]:
     """
     Direct implementation of the i-th component of the tentative velocity equation
     """
@@ -61,16 +71,16 @@ def create_tentative_forms(mesh: dolfinx.mesh.Mesh,
     dx = ufl.Measure("dx", domain=mesh)
     u_ab = ufl.as_vector((1.5 * u_n - 0.5 * u_n2, 1.5 * u_n - 0.5 * u_n2))
     u_avg = 0.5 * (u + u_n)
-    F = 1./dt * (u - u_n) * v * dx
+    F = 1.0 / dt * (u - u_n) * v * dx
     F += ufl.dot(u_ab, ufl.grad(u_avg)) * v * dx
     F += nu * ufl.inner(ufl.grad(u_avg), ufl.grad(v)) * dx
     a, L = ufl.system(F)
     Ls = []
     for i in range(mesh.geometry.dim):
         if f is None:
-            Ls.append(L + p*v.dx(i)*dx)
+            Ls.append(L + p * v.dx(i) * dx)
         else:
-            Ls.append(L + p*v.dx(i)*dx + f[i]*v*dx)
+            Ls.append(L + p * v.dx(i) * dx + f[i] * v * dx)
 
     return a, Ls, u_n, u_n2, p
 
@@ -108,39 +118,50 @@ def test_tentative(low_memory, body_force):
     right_facets = dolfinx.mesh.locate_entities_boundary(mesh, dim, outlet)
     right_value = 3
     facets = np.hstack([left_facets, tb_facets, right_facets])
-    values = np.hstack([np.full_like(left_facets, left_value, dtype=np.int32),
-                        np.full_like(tb_facets, tb_value, dtype=np.int32),
-                        np.full_like(right_facets, right_value, dtype=np.int32)])
+    values = np.hstack(
+        [
+            np.full_like(left_facets, left_value, dtype=np.int32),
+            np.full_like(tb_facets, tb_value, dtype=np.int32),
+            np.full_like(right_facets, right_value, dtype=np.int32),
+        ]
+    )
     sort = np.argsort(facets)
     facet_tags = dolfinx.mesh.meshtags(mesh, dim, facets[sort], values[sort])
 
     # Create boundary conditions
-    class Inlet():
+    class Inlet:
         def __init__(self, t):
             self.t = t
 
         def eval(self, x):
-            return (1+self.t) * np.sin(np.pi*x[1])
+            return (1 + self.t) * np.sin(np.pi * x[1])
 
     inlet = Inlet(0)
 
-    bc_tb = DirichletBC(0., LocatorMethod.TOPOLOGICAL, (facet_tags, tb_value))
+    bc_tb = DirichletBC(0.0, LocatorMethod.TOPOLOGICAL, (facet_tags, tb_value))
     bc_inlet_x = DirichletBC(inlet.eval, LocatorMethod.TOPOLOGICAL, (facet_tags, left_value))
-    bc_inlet_y = DirichletBC(0., LocatorMethod.TOPOLOGICAL, (facet_tags, left_value))
+    bc_inlet_y = DirichletBC(0.0, LocatorMethod.TOPOLOGICAL, (facet_tags, left_value))
     bcs_u = [[bc_inlet_x, bc_tb], [bc_inlet_y, bc_tb]]
-    p_value = 4.
+    p_value = 4.0
     bcs_p = [PressureBC(p_value, (facet_tags, right_value))]
 
     # Create fractional step solver
     solver = FractionalStep_AB_CN(
-        mesh, el_u, el_p, bcs_u=bcs_u, bcs_p=bcs_p,
-        solver_options=solver_options, options=options, body_force=f)
+        mesh,
+        el_u,
+        el_p,
+        bcs_u=bcs_u,
+        bcs_p=bcs_p,
+        solver_options=solver_options,
+        options=options,
+        body_force=f,
+    )
 
     dt = 0.1
     nu = 0.5
 
     # Set some almost sensible initial conditions
-    inlet.t = -2*dt
+    inlet.t = -2 * dt
     solver._u2[0].interpolate(inlet.eval)
     solver._u2[1].interpolate(inlet.eval)
     inlet.t = -dt
@@ -161,28 +182,39 @@ def test_tentative(low_memory, body_force):
     p.interpolate(lambda x: x[1])
     ux = dolfinx.fem.Function(V)
     ux.interpolate(inlet.eval)
-    inlet.t = -2*dt
+    inlet.t = -2 * dt
     u_n2.interpolate(inlet.eval)
     inlet.t = -dt
     u_n.interpolate(inlet.eval)
-    bcs_u = [[
-        dolfinx.fem.dirichletbc(ux, dolfinx.fem.locate_dofs_topological(V, dim, left_facets)),
-        dolfinx.fem.dirichletbc(0., dolfinx.fem.locate_dofs_topological(V, dim, tb_facets), V)],
-        [dolfinx.fem.dirichletbc(0., dolfinx.fem.locate_dofs_topological(V, dim, left_facets), V),
-         dolfinx.fem.dirichletbc(0., dolfinx.fem.locate_dofs_topological(V, dim, tb_facets), V)],
-        [dolfinx.fem.dirichletbc(0., dolfinx.fem.locate_dofs_topological(V, dim, left_facets), V),
-         dolfinx.fem.dirichletbc(0., dolfinx.fem.locate_dofs_topological(V, dim, tb_facets), V)]]
+    bcs_u = [
+        [
+            dolfinx.fem.dirichletbc(ux, dolfinx.fem.locate_dofs_topological(V, dim, left_facets)),
+            dolfinx.fem.dirichletbc(0.0, dolfinx.fem.locate_dofs_topological(V, dim, tb_facets), V),
+        ],
+        [
+            dolfinx.fem.dirichletbc(
+                0.0, dolfinx.fem.locate_dofs_topological(V, dim, left_facets), V
+            ),
+            dolfinx.fem.dirichletbc(0.0, dolfinx.fem.locate_dofs_topological(V, dim, tb_facets), V),
+        ],
+        [
+            dolfinx.fem.dirichletbc(
+                0.0, dolfinx.fem.locate_dofs_topological(V, dim, left_facets), V
+            ),
+            dolfinx.fem.dirichletbc(0.0, dolfinx.fem.locate_dofs_topological(V, dim, tb_facets), V),
+        ],
+    ]
     n = ufl.FacetNormal(mesh)
     v = ufl.TestFunction(V)
     ds = ufl.Measure("ds", domain=mesh, subdomain_data=facet_tags, subdomain_id=right_value)
     A = dolfinx.fem.petsc.assemble_matrix(dolfinx.fem.form(a))
     A.assemble()
     for bc in bcs_u[0]:
-        A.zeroRowsLocal(bc._cpp_object.dof_indices()[0], 1.)
+        A.zeroRowsLocal(bc._cpp_object.dof_indices()[0], 1.0)
     bs = []
     for i in range(mesh.geometry.dim):
         b = dolfinx.fem.petsc.assemble_vector(dolfinx.fem.form(Ls[i]))
-        dolfinx.fem.petsc.assemble_vector(b, dolfinx.fem.form(p_value*v.dx(i)*n[i]*ds))
+        dolfinx.fem.petsc.assemble_vector(b, dolfinx.fem.form(p_value * v.dx(i) * n[i] * ds))
         b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
         dolfinx.fem.petsc.set_bc(b, bcs_u[i])
         b.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)

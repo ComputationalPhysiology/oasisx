@@ -28,6 +28,9 @@ jobs:
       - name: Install oasisx
         run: python3 -m pip install .[test,docs]
 
+      - name: Run formatting checks
+        uses: ./.github/actions/linting.yml
+
       - name: Run tests
         run: python3 -m pytest
 
