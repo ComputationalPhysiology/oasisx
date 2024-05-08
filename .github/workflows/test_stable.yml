@@ -21,12 +21,15 @@ jobs:
     steps:
       - name: Checkout at last working position
         uses: actions/checkout@v4
-        with:
-          ref: v1.0.0
-          # ${{ github.ref }} # once backward compatibility is broken this should be pinned to a release
+        # with:
+        #   ref: v1.0.0
+        # ${{ github.ref }} # once backward compatibility is broken this should be pinned to a release
 
       - name: Install oasisx
         run: python3 -m pip install .[test,docs]
+
+      - name: Run formatting checks
+        uses: ./.github/actions/linting
 
       - name: Run tests
         run: python3 -m pytest

@@ -17,9 +17,12 @@ class KSPSolver:
     _ksp: _PETSc.KSP  # type: ignore
     __slots__ = tuple(__annotations__)
 
-    def __init__(self, comm: MPI.Comm,
-                 petsc_options: typing.Optional[dict] = None,
-                 prefix="oasis_solver"):
+    def __init__(
+        self,
+        comm: MPI.Comm,
+        petsc_options: typing.Optional[dict] = None,
+        prefix="oasis_solver",
+    ):
         """Lightweight wrapper around the PETSc KSP solver
         Args:
             comm: MPI communicator used in PETSc Solver
@@ -29,7 +32,7 @@ class KSPSolver:
                 <https://petsc4py.readthedocs.io/en/stable/manual/ksp/>`_.
         """
         petsc_options = {} if petsc_options is None else petsc_options
-        self._ksp = _PETSc.KSP().create(comm)    # type: ignore
+        self._ksp = _PETSc.KSP().create(comm)  # type: ignore
         self._prefix = prefix
         self.updateOptions(petsc_options)
 
@@ -50,23 +53,27 @@ class KSPSolver:
         for opt in opts.getAll().keys():
             del opts[opt]
 
-    def setOptions(self, op: typing.Union[_PETSc.Mat, _PETSc.Vec]):    # type: ignore
+    def setOptions(self, op: typing.Union[_PETSc.Mat, _PETSc.Vec]):  # type: ignore
         prefix = self._ksp.getOptionsPrefix()
         assert prefix is not None
         op.setOptionsPrefix(prefix)
         op.setFromOptions()
 
-    def setOperators(self,
-                     A: _PETSc.Mat,    # type: ignore
-                     P: typing.Optional[_PETSc.Mat] = None):    # type: ignore
+    def setOperators(
+        self,
+        A: _PETSc.Mat,  # type: ignore
+        P: typing.Optional[_PETSc.Mat] = None,  # type: ignore
+    ):
         if P is None:
             self._ksp.setOperators(A)
         else:
             self._ksp.setOperators(A, P)
 
-    def solve(self,
-              b: _PETSc.Vec,  # type: ignore
-              x: _fem.Function) -> np.int32:
+    def solve(
+        self,
+        b: _PETSc.Vec,  # type: ignore
+        x: _fem.Function,
+    ) -> np.int32:
         self._ksp.solve(b, x.vector)
         x.x.scatter_forward()
         return np.int32(self._ksp.getConvergedReason())

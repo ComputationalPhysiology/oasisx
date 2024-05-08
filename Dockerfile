@@ -1,4 +1,4 @@
-FROM ghcr.io/fenics/dolfinx/lab:nightly
+FROM ghcr.io/fenics/dolfinx/lab:v0.8.0
 
 
 ENV DEB_PYTHON_INSTALL_LAYOUT=deb_system
