@@ -49,10 +49,11 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
     V = dolfinx.fem.functionspace(mesh, ("Lagrange", int(P)))
 
     def f(x):
-        return 2*np.sin(x[0])+3+2*x[1]
-    mesh.topology.create_connectivity(mesh.topology.dim-1, mesh.topology.dim)
+        return 2 * np.sin(x[0]) + 3 + 2 * x[1]
+
+    mesh.topology.create_connectivity(mesh.topology.dim - 1, mesh.topology.dim)
     boundary_facets = dolfinx.mesh.exterior_facet_indices(mesh.topology)
-    boundary_dofs = dolfinx.fem.locate_dofs_topological(V, mesh.topology.dim-1, boundary_facets)
+    boundary_dofs = dolfinx.fem.locate_dofs_topological(V, mesh.topology.dim - 1, boundary_facets)
     g = dolfinx.fem.Function(V)
     g.interpolate(f)
     bcs = [dolfinx.fem.dirichletbc(g, boundary_dofs)]
@@ -64,7 +65,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
 
     # Solution from previous time step
     u_1 = dolfinx.fem.Function(V)
-    u_1.interpolate(lambda x: np.sin(x[0])*np.cos(x[1]))
+    u_1.interpolate(lambda x: np.sin(x[0]) * np.cos(x[1]))
 
     # Define variational forms
     mass = ufl.inner(u, v) * ufl.dx
@@ -82,11 +83,11 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
     convection_form = dolfinx.fem.form(convection, jit_options=jit_options)
 
     # Compile form for vector assembly (action)
-    dt_inv = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(1./dt))
+    dt_inv = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(1.0 / dt))
     dt_inv.name = "dt_inv"
     nu_c = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(nu))
     nu_c.name = "nu"
-    rhs = dt_inv * mass - 0.5 * nu_c * stiffness - 0.5*convection
+    rhs = dt_inv * mass - 0.5 * nu_c * stiffness - 0.5 * convection
     rhs_form = dolfinx.fem.form(ufl.action(rhs, u_1), jit_options=jit_options)
 
     # Assemble time independent matrices
@@ -142,8 +143,8 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         dolfinx.fem.petsc.assemble_matrix(A, convection_form)
         A.assemble()
         A.scale(-0.5)
-        A.axpy(1./dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
-        A.axpy(-0.5*nu, K, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
+        A.axpy(1.0 / dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
+        A.axpy(-0.5 * nu, K, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
         end_lhs = time.perf_counter()
 
         # Do mat-vec operations
@@ -160,9 +161,9 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         # Rescale matrix and apply bc
         start_rescale = time.perf_counter()
         A.scale(-1)
-        A.axpy(2/dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
+        A.axpy(2 / dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
         for bc in bcs:
-            A.zeroRowsLocal(bc._cpp_object.dof_indices()[0], 1.)  # type: ignore
+            A.zeroRowsLocal(bc._cpp_object.dof_indices()[0], 1.0)  # type: ignore
         end_rescale = time.perf_counter()
         t_matrix = end_rescale - start_rescale + end_lhs - start_lhs
 
@@ -185,10 +186,10 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         dolfinx.fem.petsc.assemble_matrix(Ax, convection_form)
         Ax.assemble()
         Ax.scale(0.5)
-        Ax.axpy(1./dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
-        Ax.axpy(0.5*nu, K, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
+        Ax.axpy(1.0 / dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
+        Ax.axpy(0.5 * nu, K, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
         for bc in bcs:
-            Ax.zeroRowsLocal(bc._cpp_object.dof_indices()[0], 1.)  # type: ignore
+            Ax.zeroRowsLocal(bc._cpp_object.dof_indices()[0], 1.0)  # type: ignore
         end_lhs_new = time.perf_counter()
 
         mesh.comm.Barrier()
@@ -203,18 +204,26 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         end_rhs_new = time.perf_counter()
 
         # Gather results
-        new_total[i, :] = mesh.comm.allgather(end_lhs_new - start_lhs_new
-                                              + end_rhs_new - start_rhs_new)
+        new_total[i, :] = mesh.comm.allgather(
+            end_lhs_new - start_lhs_new + end_rhs_new - start_rhs_new
+        )
         new_lhs[i, :] = mesh.comm.allgather(end_lhs_new - start_lhs_new)
         new_rhs[i, :] = mesh.comm.allgather(end_rhs_new - start_rhs_new)
 
-        matrix_total = mesh.comm.allgather(end_mat-start_mat)
+        matrix_total = mesh.comm.allgather(end_mat - start_mat)
         if mesh.comm.rank == 0:
-            print("Oasis Total", oasis_total[i],  "\nNew Total", new_total[i],
-                  "\nMatrix total", matrix_total, flush=True)
+            print(
+                "Oasis Total",
+                oasis_total[i],
+                "\nNew Total",
+                new_total[i],
+                "\nMatrix total",
+                matrix_total,
+                flush=True,
+            )
         # Check that vectors are the same
         if not np.allclose(bx.x.array, b.x.array):
-            print(np.max(np.abs(bx.x.array[:]-b.x.array[:])))
+            print(np.max(np.abs(bx.x.array[:] - b.x.array[:])))
             raise RuntimeError("Vectors are not equal after assembly")
 
         # Check that matrices are the same
@@ -225,59 +234,106 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
             print(np.max(np.abs(D.getValuesCSR()[2])))
             raise RuntimeError("Matrices are not equal after assembly")
     num_dofs_global = V.dofmap.index_map_bs * V.dofmap.index_map.size_global
-    return num_dofs_global, new_lhs, new_rhs, oasis_lhs, oasis_rhs, oasis_total, new_total
+    return (
+        num_dofs_global,
+        new_lhs,
+        new_rhs,
+        oasis_lhs,
+        oasis_rhs,
+        oasis_total,
+        new_total,
+    )
 
 
 # We solve the problem on a unit cube that is split into tetrahedra with `Nx`,`Ny` and `Nx`
 # tetrahedra in the x, y and z-direction respectively.
 
-def run_parameter_sweep(Nx: int, Ny: int, Nz: int, repeats: int, min_degree: int,
-                        max_degree: int) -> dict:
+
+def run_parameter_sweep(
+    Nx: int, Ny: int, Nz: int, repeats: int, min_degree: int, max_degree: int
+) -> dict:
     # Information regarding optimization flags can be found at:
     # https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html
     jit_options = {"cffi_extra_compile_args": ["-march=native", "-O3"]}
 
     mesh = dolfinx.mesh.create_unit_cube(MPI.COMM_WORLD, Nx, Ny, Nz)
-    Ps = np.arange(min_degree, max_degree+1, dtype=np.int32)
+    Ps = np.arange(min_degree, max_degree + 1, dtype=np.int32)
     j = 0
     results = {}
     for i, P in enumerate(Ps):
         if mesh.comm.rank == 0:
             print(i, P, flush=True)
         dof, new_lhs, new_rhs, oasis_lhs, oasis_rhs, oasis_total, new_total = assembly(
-            mesh, P, repeats=repeats, jit_options=jit_options)
+            mesh, P, repeats=repeats, jit_options=jit_options
+        )
         if mesh.comm.rank == 0:
             print("Writing to dict")
         for row in new_lhs:
             for process in row:
-                results[j] = {"P": P, "num_dofs": dof, "method": "new", "side":
-                              "lhs", "time (s)": process, "procs": MPI.COMM_WORLD.size}
+                results[j] = {
+                    "P": P,
+                    "num_dofs": dof,
+                    "method": "new",
+                    "side": "lhs",
+                    "time (s)": process,
+                    "procs": MPI.COMM_WORLD.size,
+                }
                 j += 1
         for row in new_rhs:
             for process in row:
-                results[j] = {"P": P, "num_dofs": dof, "method": "new", "side":
-                              "rhs", "time (s)": process, "procs": MPI.COMM_WORLD.size}
+                results[j] = {
+                    "P": P,
+                    "num_dofs": dof,
+                    "method": "new",
+                    "side": "rhs",
+                    "time (s)": process,
+                    "procs": MPI.COMM_WORLD.size,
+                }
                 j += 1
 
         for row in oasis_lhs:
             for process in row:
-                results[j] = {"P": P, "num_dofs": dof, "method": "oasis", "side":
-                              "lhs", "time (s)": process, "procs": MPI.COMM_WORLD.size}
+                results[j] = {
+                    "P": P,
+                    "num_dofs": dof,
+                    "method": "oasis",
+                    "side": "lhs",
+                    "time (s)": process,
+                    "procs": MPI.COMM_WORLD.size,
+                }
                 j += 1
         for row in oasis_rhs:
             for process in row:
-                results[j] = {"P": P, "num_dofs": dof, "method": "oasis", "side":
-                              "rhs", "time (s)": process, "procs": MPI.COMM_WORLD.size}
+                results[j] = {
+                    "P": P,
+                    "num_dofs": dof,
+                    "method": "oasis",
+                    "side": "rhs",
+                    "time (s)": process,
+                    "procs": MPI.COMM_WORLD.size,
+                }
                 j += 1
         for row in oasis_total:
             for process in row:
-                results[j] = {"P": P, "num_dofs": dof, "method": "oasis", "side":
-                              "total", "time (s)": process, "procs": MPI.COMM_WORLD.size}
+                results[j] = {
+                    "P": P,
+                    "num_dofs": dof,
+                    "method": "oasis",
+                    "side": "total",
+                    "time (s)": process,
+                    "procs": MPI.COMM_WORLD.size,
+                }
                 j += 1
         for row in new_total:
             for process in row:
-                results[j] = {"P": P, "num_dofs": dof, "method": "new", "side":
-                              "total", "time (s)": process, "procs": MPI.COMM_WORLD.size}
+                results[j] = {
+                    "P": P,
+                    "num_dofs": dof,
+                    "method": "new",
+                    "side": "total",
+                    "time (s)": process,
+                    "procs": MPI.COMM_WORLD.size,
+                }
                 j += 1
     return results
 
@@ -290,28 +346,31 @@ def run_parameter_sweep(Nx: int, Ny: int, Nz: int, repeats: int, min_degree: int
 def create_plot(results: dict, outfile: str):
     if MPI.COMM_WORLD.rank == 0:
         df = pandas.DataFrame.from_dict(results, orient="index")
-        df["label"] = "P" + df["P"].astype(str) + " " + \
-            df["num_dofs"].astype(str) + " \n Comms: " + df["procs"].astype(str)
+        df["label"] = (
+            "P"
+            + df["P"].astype(str)
+            + " "
+            + df["num_dofs"].astype(str)
+            + " \n Comms: "
+            + df["procs"].astype(str)
+        )
         plt.figure()
         df_rhs = df[df["side"] == "rhs"]
-        plot = seaborn.catplot(data=df_rhs, kind="swarm",  x="label",
-                               y="time (s)", hue="method")
+        plot = seaborn.catplot(data=df_rhs, kind="swarm", x="label", y="time (s)", hue="method")
         plot.set(yscale="log", title="RHS assembly")
         plt.grid()
         plt.savefig(f"{outfile}_rhs.png")
 
         plt.figure()
         df_lhs = df[df["side"] == "lhs"]
-        plot = seaborn.catplot(data=df_lhs, kind="swarm",  x="label",
-                               y="time (s)", hue="method")
+        plot = seaborn.catplot(data=df_lhs, kind="swarm", x="label", y="time (s)", hue="method")
         plot.set(yscale="log", title="LHS assembly")
         plt.grid()
         plt.savefig(f"{outfile}_lhs.png")
 
         plt.figure()
         df_total = df[df["side"] == "total"]
-        plot = seaborn.catplot(data=df_total, kind="swarm",  x="label",
-                               y="time (s)", hue="method")
+        plot = seaborn.catplot(data=df_total, kind="swarm", x="label", y="time (s)", hue="method")
         plot.set(yscale="log", title="Total assembly")
         plt.grid()
         plt.savefig(f"{outfile}_total.png")

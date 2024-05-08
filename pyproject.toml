@@ -5,18 +5,18 @@ requires = ["setuptools>=64.4.0", "wheel"]
 [project]
 name = "OasisX"
 authors = [{ name = "Jørgen S. Dokken", email = "dokken@simula.no" }]
-version = "1.0.0.dev0"
+version = "1.1.0"
 description = "A modern implementation of Oasis"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { file = "LICENSE" }
-dependencies = ['numpy', 'fenics-dolfinx>=0.7.0']
+dependencies = ['numpy', 'fenics-dolfinx>=0.8.0']
 
 [project.scripts]
 oasisx = "oasisx.__main__:main"
 
 [project.optional-dependencies]
-test = ["flake8", "mypy", "pytest", "pytest-cov", "isort"]
+test = ["ruff", "mypy", "pytest", "pytest-cov", "isort"]
 
 docs = [
     "jupyter-book",
@@ -43,16 +43,42 @@ testpaths = ["test"]
 "demo/" = "py:light"
 
 
-[tool.isort]
-src_paths = ["src", "demo", "test"]
-known_first_party = ["oasisx"]
-known_third_party = ["basix", "dolfinx", "ufl", "gmsh", "numpy", "pytest"]
-known_mpi = ["mpi4py", "petsc4py"]
-sections = [
-    "FUTURE",
-    "STDLIB",
-    "MPI",
-    "THIRDPARTY",
-    "FIRSTPARTY",
-    "LOCALFOLDER",
+[tool.ruff]
+src = ["src", "test", "demo"]
+line-length = 100
+indent-width = 4
+
+[tool.ruff.lint]
+select = [
+    # Pyflakes
+    "F",
+    # Pycodestyle
+    "E",
+    "W",
+    # isort
+    "I001",
 ]
+
+
+[tool.ruff.lint.isort]
+known-first-party = ["oasisx"]
+known-third-party = [
+    "basix",
+    "dolfinx",
+    "ffcx",
+    "ufl",
+    "gmsh",
+    "numpy",
+    "pytest",
+]
+section-order = [
+    "future",
+    "standard-library",
+    "mpi",
+    "third-party",
+    "first-party",
+    "local-folder",
+]
+
+[tool.ruff.lint.isort.sections]
+"mpi" = ["mpi4py", "petsc4py"]

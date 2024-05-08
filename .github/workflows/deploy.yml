@@ -3,7 +3,7 @@ name: Publish documentation
 on:
   # Runs on pushes targeting the default branch
   push:
-    branches: ["main"]
+    branches: ["release"]
 
   schedule:
     - cron: "0 8 * * *"
@@ -22,9 +22,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  linting:
-    uses: ./.github/workflows/linting.yml
-
   build-docs:
     uses: ./.github/workflows/docs.yml
 
@@ -40,25 +37,25 @@ jobs:
 
     steps:
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
 
       - name: Download docs artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: documentation
           path: "./documentation"
 
       - name: Download docs artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: code-coverage-report
           path: "./documentation/code-coverage-report"
 
       - name: Upload page artifact
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-pages-artifact@v3
         with:
           path: "./documentation"
 
       - name: Deploy coverage report to GH Pages
         id: deployment
-        uses: actions/deploy-pages@v3
+        uses: actions/deploy-pages@v4
