@@ -22,7 +22,7 @@ jobs:
         run: python3 -m pip install --break-system-packages .[test,docs]
 
       - name: Run formatting checks
-        uses: ./.github/actions/linting.yml
+        uses: ./.github/actions/linting
 
       - name: Run tests
         run: python3 -m pytest
