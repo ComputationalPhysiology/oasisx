@@ -1,11 +1,16 @@
 name: Test package against nightly image
 
 on:
+  push:
+    branches:
+      - main
   workflow_call:
   workflow_dispatch:
   pull_request:
     branches:
       - main
+  schedule:
+    - cron: "0 8 * * *"
 
 env:
   DEB_PYTHON_INSTALL_LAYOUT: deb_system
