@@ -6,22 +6,44 @@ on:
       - main
 
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag of DOLFINx docker image'
+        default: 'nightly'
+        required: true
+        type: string
   workflow_call:
+    inputs:
+      tag:
+        description: 'Tag of DOLFINx docker image'
+        default: 'nightly'
+        required: true
+        type: string
 
 env:
   DEB_PYTHON_INSTALL_LAYOUT: deb_system
+  DEFAULT_TAG: nightly
 
 jobs:
+  get_image:
+    runs-on: ubuntu-latest
+    outputs:
+      image:  ${{ steps.docker_tag.outputs.image }}
+    steps:
+      - id: docker_tag
+        run: echo "image=${{ inputs.tag || env.DEFAULT_TAG }}" >> $GITHUB_OUTPUT
+      
   build:
+    needs: get_image
     runs-on: ubuntu-22.04
-    container: ghcr.io/fenics/dolfinx/dolfinx:stable
+    container: ghcr.io/fenics/dolfinx/dolfinx:${{ needs.get_image.outputs.image }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: python3 -m pip install ".[test,docs]"
+        run: python3 -m pip install --break-system-packages ".[test,docs]"
 
       - name: Build docs
         run: jupyter book build -W docs/
