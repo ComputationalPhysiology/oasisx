@@ -1,24 +1,38 @@
-name: Test package against nightly image
-
+name: Test OASISx against DOLFINx (docker)
 on:
   push:
     branches:
       - main
   workflow_call:
+    inputs:
+      tag:
+        description: 'Tag of DOLFINx docker image'
+        default: 'nightly'
+        required: true
+        type: string
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag of DOLFINx docker image'
+        default: 'nightly'
+        required: true
+        type: string
+
   pull_request:
     branches:
       - main
   schedule:
     - cron: "0 8 * * *"
 
-env:
-  DEB_PYTHON_INSTALL_LAYOUT: deb_system
 
 jobs:
   tests:
     runs-on: ubuntu-22.04
-    container: ghcr.io/fenics/dolfinx/dolfinx:nightly
+    env: 
+      DEFAULT_TAG: nightly
+      DEB_PYTHON_INSTALL_LAYOUT: deb_system
+    
+    container: ghcr.io/fenics/dolfinx/dolfinx:${{ inputs.tag || github.env.DEFAULT_TAG }}
 
     steps:
       - uses: actions/checkout@v4

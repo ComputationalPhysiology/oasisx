@@ -6,7 +6,19 @@ on:
       - main
 
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag of DOLFINx docker image'
+        default: 'nightly'
+        required: true
+        type: string
   workflow_call:
+    inputs:
+      tag:
+        description: 'Tag of DOLFINx docker image'
+        default: 'nightly'
+        required: true
+        type: string
 
 env:
   DEB_PYTHON_INSTALL_LAYOUT: deb_system
@@ -14,7 +26,10 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    container: ghcr.io/fenics/dolfinx/dolfinx:stable
+    env: 
+      DEFAULT_TAG: nightly
+      DEB_PYTHON_INSTALL_LAYOUT: deb_system    
+    container: ghcr.io/fenics/dolfinx/dolfinx:${{ inputs.tag || github.env.DEFAULT_TAG }}
 
     steps:
       - name: Checkout
