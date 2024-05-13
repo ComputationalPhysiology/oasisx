@@ -22,13 +22,11 @@ on:
 
 env:
   DEB_PYTHON_INSTALL_LAYOUT: deb_system
+  DEFAULT_TAG: nightly
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    env: 
-      DEFAULT_TAG: nightly
-      DEB_PYTHON_INSTALL_LAYOUT: deb_system    
     container: ghcr.io/fenics/dolfinx/dolfinx:${{ inputs.tag || github.env.DEFAULT_TAG }}
 
     steps:
