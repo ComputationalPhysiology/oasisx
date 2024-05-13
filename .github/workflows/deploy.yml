@@ -24,9 +24,13 @@ concurrency:
 jobs:
   build-docs:
     uses: ./.github/workflows/docs.yml
+    with: 
+      tag: "stable"
 
   run-tests:
-    uses: ./.github/workflows/test_stable.yml
+    uses: ./.github/workflows/tests.yml
+    with: 
+      tag: "stable"
 
   deploy:
     runs-on: ubuntu-22.04
