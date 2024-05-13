@@ -25,9 +25,18 @@ env:
   DEFAULT_TAG: nightly
 
 jobs:
+  get_image:
+    runs-on: ubuntu-latest
+    outputs:
+      image:  ${{ steps.docker_tag.outputs.image }}
+    steps:
+    - id: docker_tag
+      run: echo "::set-output name=image::${{ inputs.tag || github.env.DEFAULT_TAG }}"
+
   build:
+    needs: get_image
     runs-on: ubuntu-22.04
-    container: ghcr.io/fenics/dolfinx/dolfinx:${{ inputs.tag || github.env.DEFAULT_TAG }}
+    container: ghcr.io/fenics/dolfinx/dolfinx:${{ needs.get_image.outputs.image }}
 
     steps:
       - name: Checkout
