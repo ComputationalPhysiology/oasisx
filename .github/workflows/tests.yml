@@ -24,6 +24,9 @@ on:
   schedule:
     - cron: "0 8 * * *"
 
+env:
+  DEB_PYTHON_INSTALL_LAYOUT: deb_system
+  DEFAULT_TAG: nightly
 
 jobs:
   get_image:
@@ -31,9 +34,9 @@ jobs:
     outputs:
       image:  ${{ steps.docker_tag.outputs.image }}
     steps:
-    - id: docker_tag
-      run: echo "image=${{ inputs.tag || github.env.DEFAULT_TAG }}" >> $GITHUB_OUTPUT
-
+      - id: docker_tag
+        run: echo "image=${{ inputs.tag || env.DEFAULT_TAG }}" >> $GITHUB_OUTPUT
+      
   build:
     needs: get_image
     runs-on: ubuntu-22.04
