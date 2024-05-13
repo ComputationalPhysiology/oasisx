@@ -32,7 +32,7 @@ jobs:
       image:  ${{ steps.docker_tag.outputs.image }}
     steps:
     - id: docker_tag
-      run: echo "::set-output name=image::${{ inputs.tag || github.env.DEFAULT_TAG }}"
+      run: echo "image=${{ inputs.tag || github.env.DEFAULT_TAG }}" >> $GITHUB_OUTPUT
 
   build:
     needs: get_image

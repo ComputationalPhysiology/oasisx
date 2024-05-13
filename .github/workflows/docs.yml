@@ -31,14 +31,19 @@ jobs:
       image:  ${{ steps.docker_tag.outputs.image }}
     steps:
     - id: docker_tag
-      run: echo "::set-output name=image::${{ inputs.tag || github.env.DEFAULT_TAG }}"
-
+      run: echo "image=${{ inputs.tag || github.env.DEFAULT_TAG }}" >> $GITHUB_OUTPUT
+      
   build:
     needs: get_image
     runs-on: ubuntu-22.04
-    container: ghcr.io/fenics/dolfinx/dolfinx:${{ needs.get_image.outputs.image }}
+    # container: ghcr.io/fenics/dolfinx/dolfinx:${{ needs.get_image.outputs.image }}
+    env:
+      OUTPUT1: ${{ needs.get_image.outputs.image }}
 
     steps:
+    
+      - run: echo "${OUTPUT1}"
+      
       - name: Checkout
         uses: actions/checkout@v4
 
