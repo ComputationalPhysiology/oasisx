@@ -42,20 +42,20 @@ jobs:
 
     steps:
     
-      - run: echo "${OUTPUT1}"
+      - run: echo "${{ github.env.OUTPUT1 }} ${{ needs.get_image.outputs.image }}"
       
-      - name: Checkout
-        uses: actions/checkout@v4
+      # - name: Checkout
+      #   uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: python3 -m pip install ".[test,docs]"
+      # - name: Install dependencies
+      #   run: python3 -m pip install ".[test,docs]"
 
-      - name: Build docs
-        run: jupyter book build -W docs/
+      # - name: Build docs
+      #   run: jupyter book build -W docs/
 
-      - name: Upload documentation
-        uses: actions/upload-artifact@v4
-        with:
-          name: documentation
-          path: ./docs/_build/html
-          if-no-files-found: error
+      # - name: Upload documentation
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: documentation
+      #     path: ./docs/_build/html
+      #     if-no-files-found: error
