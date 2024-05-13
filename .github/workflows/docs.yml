@@ -31,7 +31,7 @@ jobs:
       image:  ${{ steps.docker_tag.outputs.image }}
     steps:
       - id: docker_tag
-        run: echo "image=${{ inputs.tag | env.DEFAULT_TAG }}" >> $GITHUB_OUTPUT
+        run: echo "image=${{ inputs.tag || env.DEFAULT_TAG }}" >> $GITHUB_OUTPUT
       
   build:
     needs: get_image
