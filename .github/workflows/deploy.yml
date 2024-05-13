@@ -26,7 +26,7 @@ jobs:
     uses: ./.github/workflows/docs.yml
 
   run-tests:
-    uses: ./.github/workflows/tests.yml
+    uses: ./.github/workflows/test_stable.yml
 
   deploy:
     runs-on: ubuntu-22.04
