@@ -85,7 +85,7 @@ $$
 \end{align}
 $$
 
-We use the fact that $\nabla \cdot \mathbf{u}^n = 0$ and the identitiy $\nabla \cdot \Delta \mathbf{T} = \nabla \cdot \nabla (\nabla \cdot \mathbf{T})- \nabla \cdot (\nabla \times(\nabla \times \mathbf{T}) ) =# \Delta (\nabla \cdot \mathbf{T})$ as $\nabla \cdot (\nabla \times L) = 0 \quad \forall L$ we can simplify our equation
+We use the fact that $\nabla \cdot \mathbf{u}^n = 0$ and the identitiy $\nabla \cdot \Delta \mathbf{T} = \nabla \cdot \nabla (\nabla \cdot \mathbf{T})- \nabla \cdot (\nabla \times(\nabla \times \mathbf{T}) ) = \Delta (\nabla \cdot \mathbf{T})$ as $\nabla \cdot (\nabla \times L) = 0 \quad \forall L$ we can simplify our equation
 
 $$
 \begin{align}
@@ -174,7 +174,7 @@ $$
     \frac{u_k^{I}-  u_k^{n-1}}{\Delta t} + B_k^{n-\frac{1}{2}} &= \nu \nabla^2 \tilde u_k - \nabla_k p^\star + f_k^{n-\frac{1}{2}} & \text{for } k=1,\dots d&\text{ in } \Omega\\
     u_k^I &= g_k&& \text{ on } \partial \Omega_D\\
     \nu\frac{\partial \tilde u_k }{\partial  n} - p^*n_k &= h^{n-\frac{1}{2}}n_k&&\text{ on }\partial\Omega_N\\
-    \nabla^2\phi &= -\frac{1}{\Delta t} \nabla \cdot \mathbf{u}^I, &&\text{ in } \Omega\\
+    \nabla^2\phi &= \frac{1}{\Delta t} \nabla \cdot \mathbf{u}^I, &&\text{ in } \Omega\\
     \frac{\partial\phi}{\partial n}&=0&& \text{ on }\partial \Omega_D \\
     \phi &= 0 &&\text{ on } \partial \Omega_N\\
     \frac{u_k^n-u_k^I}{\Delta t} &= -\frac{\partial}{\partial x_k}\phi & \text{for } k=1,\dots d,
@@ -183,7 +183,7 @@ $$
 
 where $u_k^n$ is the $k$th component of the velocity vector at time $t^n$ $\phi = p^{n-\frac{1}{2}}-p^\star$ is a pressure correction, $p^\star$ the tentative pressure.
 
-Using $\phi=0$ on $\partial\Omega_n$ can cause locking {cite}`poux2011` ,{cite}`guermond2006`, i.e. $p^{n+\frac{1}{2}}\vert_{\partial\Omega_N}=p^*\vert_{\partial\Omega_N}$.
+Using $\phi=0$ on $\partial\Omega_N$ can cause locking {cite}`poux2011` ,{cite}`guermond2006`, i.e. $p^{n+\frac{1}{2}}\vert_{\partial\Omega_N}=p^*\vert_{\partial\Omega_N}$.
 We thus add an extra term
 
 $$
