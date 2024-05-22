@@ -213,7 +213,7 @@ for n, N in enumerate(inputs.Ns):
 
     vtxu.close()
     vtxp.close()
-
+    mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim)
     hmax_loc = np.max(
         mesh.h(
             mesh.topology.dim,
