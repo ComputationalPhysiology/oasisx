@@ -16,7 +16,7 @@ dependencies = ['numpy', 'fenics-dolfinx>=0.8.0']
 oasisx = "oasisx.__main__:main"
 
 [project.optional-dependencies]
-test = ["ruff", "mypy", "pytest", "pytest-cov", "isort"]
+test = ["ruff", "mypy", "pytest", "pytest-cov", "isort", "scipy"]
 
 docs = [
     "jupyter-book",
