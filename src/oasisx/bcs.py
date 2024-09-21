@@ -226,7 +226,7 @@ class PressureBC:
             Q: The pressure function space
         """
         mesh = V.mesh
-        assert mesh.topology == self._subdomain_data.topology
+        assert mesh.topology._cpp_object == self._subdomain_data.topology
         # Create pressure "Neumann" condition
         v = ufl.TestFunction(V)
         ds = ufl.Measure(
