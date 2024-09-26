@@ -234,7 +234,7 @@ def test_tentative(low_memory, body_force):
     converged_u = solver.velocity_tentative_solve()
     for i in range(mesh.geometry.dim):
         assert converged_u[1][i]
-        assert np.allclose(solver._rhs1[i].vector.array, bs[i].array)
+        assert np.allclose(solver._rhs1[i].x.petsc_vec.array, bs[i].array)
 
     # solver.pressure_assemble(dt)
     # converged_p = solver.pressure_solve()

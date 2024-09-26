@@ -46,12 +46,12 @@ def test_function_geometrical(P):
         bc_dx = dolfinx.fem.dirichletbc(u, dolfinx.fem.locate_dofs_geometrical(V, locator))
 
         u_bcx = dolfinx.fem.Function(V)
-        dolfinx.fem.petsc.set_bc(u_bcx.vector, [bc_dx])
+        dolfinx.fem.petsc.set_bc(u_bcx.x.petsc_vec, [bc_dx])
 
         u_bc = dolfinx.fem.Function(V)
         condition_0.t = t
         bc.update_bc()
-        bc.apply(u_bc.vector)
+        bc.apply(u_bc.x.petsc_vec)
         assert np.allclose(u_bcx.x.array, u_bc.x.array)
 
 
@@ -88,12 +88,12 @@ def test_function_topological(P, dim):
         bc_dx = dolfinx.fem.dirichletbc(u, dolfinx.fem.locate_dofs_topological(V, dim, entities))
 
         u_bcx = dolfinx.fem.Function(V)
-        dolfinx.fem.petsc.set_bc(u_bcx.vector, [bc_dx])
+        dolfinx.fem.petsc.set_bc(u_bcx.x.petsc_vec, [bc_dx])
 
         u_bc = dolfinx.fem.Function(V)
         condition_0.t = t
         bc.update_bc()
-        bc.apply(u_bc.vector)
+        bc.apply(u_bc.x.petsc_vec)
         assert np.allclose(u_bcx.x.array, u_bc.x.array)
 
 
@@ -118,10 +118,10 @@ def test_constant_geometrical(P):
         time.value += t
         bc_dx = dolfinx.fem.dirichletbc(time, dolfinx.fem.locate_dofs_geometrical(V, locator), V)
         u_bcx = dolfinx.fem.Function(V)
-        dolfinx.fem.petsc.set_bc(u_bcx.vector, [bc_dx])
+        dolfinx.fem.petsc.set_bc(u_bcx.x.petsc_vec, [bc_dx])
 
         u_bc = dolfinx.fem.Function(V)
-        bc.apply(u_bc.vector)
+        bc.apply(u_bc.x.petsc_vec)
         assert np.allclose(u_bcx.x.array, u_bc.x.array)
 
 
@@ -156,10 +156,10 @@ def test_constant_topological(P, dim):
         )
 
         u_bcx = dolfinx.fem.Function(V)
-        dolfinx.fem.petsc.set_bc(u_bcx.vector, [bc_dx])
+        dolfinx.fem.petsc.set_bc(u_bcx.x.petsc_vec, [bc_dx])
 
         u_bc = dolfinx.fem.Function(V)
-        bc.apply(u_bc.vector)
+        bc.apply(u_bc.x.petsc_vec)
         assert np.allclose(u_bcx.x.array, u_bc.x.array)
 
 
@@ -199,19 +199,19 @@ def test_pressure_condition(P):
     for i, ni in enumerate(n):
         rhs = dolfinx.fem.form(p * n[i] * v.dx(i) * ds)
         b_form = dolfinx.fem.Function(V)
-        dolfinx.fem.petsc.assemble_vector(b_form.vector, rhs)
+        dolfinx.fem.petsc.assemble_vector(b_form.x.petsc_vec, rhs)
         b_bc = dolfinx.fem.Function(V)
-        dolfinx.fem.petsc.assemble_vector(b_bc.vector, dolfinx.fem.form(bc.rhs(i)))
+        dolfinx.fem.petsc.assemble_vector(b_bc.x.petsc_vec, dolfinx.fem.form(bc.rhs(i)))
         assert np.allclose(b_form.x.array, b_bc.x.array)
 
     dofs = dolfinx.fem.locate_dofs_topological(Q, mesh.topology.dim - 1, et.find(value))
     bc_ex = dolfinx.fem.dirichletbc(0.0, dofs, Q)
     r = dolfinx.fem.Function(Q)
     r.x.array[:] = 10
-    dolfinx.fem.petsc.set_bc(r.vector, [bc_ex])
+    dolfinx.fem.petsc.set_bc(r.x.petsc_vec, [bc_ex])
 
     s = dolfinx.fem.Function(Q)
     s.x.array[:] = 10
-    dolfinx.fem.petsc.set_bc(s.vector, [bc.bc])
+    dolfinx.fem.petsc.set_bc(s.x.petsc_vec, [bc.bc])
 
     assert np.allclose(r.x.array, s.x.array)

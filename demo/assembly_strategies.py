@@ -130,13 +130,13 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
             A.scale(-0.5)
             A.axpy(1.0 / dt, M)
             A.axpy(-0.5 * nu, K)
-            A.mult(u_1.vector, b.vector)
+            A.mult(u_1.x.petsc_vec, b.x.petsc_vec)
             b.x.scatter_forward()
 
         # Compute the vector without using pre-generated matrices
         b_d = dolfinx.fem.Function(V)
         with dolfinx.common.Timer(f"~{P} {i} Action strategy") as _:
-            dolfinx.fem.petsc.assemble_vector(b_d.vector, lhs)
+            dolfinx.fem.petsc.assemble_vector(b_d.x.petsc_vec, lhs)
             b_d.x.scatter_reverse(dolfinx.la.InsertMode.add)
             b_d.x.scatter_forward()
         # Compare results

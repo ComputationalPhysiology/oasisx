@@ -150,9 +150,9 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         # Do mat-vec operations
         b.x.array[:] = 0
         start_rhs = time.perf_counter()
-        A.mult(u_1.vector, b.vector)
+        A.mult(u_1.x.petsc_vec, b.x.petsc_vec)
         b.x.scatter_reverse(dolfinx.la.InsertMode.add)
-        dolfinx.fem.petsc.set_bc(b.vector, bcs)
+        dolfinx.fem.petsc.set_bc(b.x.petsc_vec, bcs)
         b.x.scatter_forward()
         end_rhs = time.perf_counter()
         t_matvec = end_rhs - start_rhs
@@ -197,9 +197,9 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
         # Compute the vector without using pre-generated matrices
         bx.x.array[:] = 0
         start_rhs_new = time.perf_counter()
-        dolfinx.fem.petsc.assemble_vector(bx.vector, rhs_form)
+        dolfinx.fem.petsc.assemble_vector(bx.x.petsc_vec, rhs_form)
         bx.x.scatter_reverse(dolfinx.la.InsertMode.add)
-        dolfinx.fem.petsc.set_bc(bx.vector, bcs)
+        dolfinx.fem.petsc.set_bc(bx.x.petsc_vec, bcs)
         bx.x.scatter_forward()
         end_rhs_new = time.perf_counter()
 

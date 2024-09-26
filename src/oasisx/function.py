@@ -97,8 +97,8 @@ class Projector:
         # Set matrix and vector PETSc options
         self._A.setOptionsPrefix(prefix)
         self._A.setFromOptions()
-        self._b.vector.setOptionsPrefix(prefix)
-        self._b.vector.setFromOptions()
+        self._b.x.petsc_vec.setOptionsPrefix(prefix)
+        self._b.x.petsc_vec.setFromOptions()
 
         for opt in opts.getAll().keys():
             del opts[opt]
@@ -111,12 +111,12 @@ class Projector:
         Update RHS by re-assembling
         """
         self._b.x.array[:] = 0.0
-        dolfinx.fem.petsc.assemble_vector(self._b.vector, self._rhs)
+        dolfinx.fem.petsc.assemble_vector(self._b.x.petsc_vec, self._rhs)
         if len(self._bcs) > 0:
-            dolfinx.fem.petsc.apply_lifting(self._b.vector, [self._lhs], bcs=[self._bcs])
+            dolfinx.fem.petsc.apply_lifting(self._b.x.petsc_vec, [self._lhs], bcs=[self._bcs])
         self._b.x.scatter_reverse(dolfinx.cpp.la.InsertMode.add)
         if len(self._bcs) > 0:
-            dolfinx.fem.petsc.set_bc(self._b.vector, self._bcs)
+            dolfinx.fem.petsc.set_bc(self._b.x.petsc_vec, self._bcs)
         self._b.x.scatter_forward()
 
     def solve(self, assemble_rhs: bool = True) -> int:
@@ -129,7 +129,7 @@ class Projector:
         if assemble_rhs:
             self.assemble_rhs()
 
-        self._ksp.solve(self._b.vector, self._x.vector)
+        self._ksp.solve(self._b.x.petsc_vec, self._x.x.petsc_vec)
         self._x.x.scatter_forward()
         return int(self._ksp.getConvergedReason())
 
@@ -140,8 +140,8 @@ class Projector:
     def __del__(self):
         self._ksp.destroy()
         self._A.destroy()
-        self._b.vector.destroy()
-        self._x.vector.destroy()
+        self._b.x.petsc_vec.destroy()
+        self._x.x.petsc_vec.destroy()
 
 
 class LumpedProject:

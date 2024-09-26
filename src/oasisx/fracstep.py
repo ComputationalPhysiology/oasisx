@@ -387,7 +387,7 @@ class FractionalStep_AB_CN:
         # Assemble constant body forces
         for i in range(len(self._u)):
             self._b0[i].x.array[:] = 0.0
-            _petsc.assemble_vector(self._b0[i].vector, self._body_force[i])
+            _petsc.assemble_vector(self._b0[i].x.petsc_vec, self._body_force[i])
             self._b0[i].x.scatter_reverse(_la.InsertMode.add)
 
         if not self._low_memory:
@@ -450,7 +450,7 @@ class FractionalStep_AB_CN:
         for i, _ in enumerate(self._u):
             self._b_first[i].x.array[:] = 0
             # Start with transient convection and diffusion
-            self._A.mult(self._u1[i].vector, self._wrk_comp.vector)
+            self._A.mult(self._u1[i].x.petsc_vec, self._wrk_comp.x.petsc_vec)
             self._wrk_comp.x.scatter_forward()
 
             # Add body force
@@ -461,7 +461,7 @@ class FractionalStep_AB_CN:
             # Add pressure contribution
             if hasattr(self, "_p_surf") and self._p_surf[i].rank == 1:  # type: ignore
                 self._wrk_comp.x.array[:] = 0
-                _petsc.assemble_vector(self._wrk_comp.vector, self._p_surf[i])
+                _petsc.assemble_vector(self._wrk_comp.x.petsc_vec, self._p_surf[i])
                 self._wrk_comp.x.scatter_reverse(_la.InsertMode.add)
                 self._b_first[i].x.array[:] += self._wrk_comp.x.array[:]
 
@@ -489,7 +489,7 @@ class FractionalStep_AB_CN:
             for i in range(self._mesh.geometry.dim):
                 self._p_vdxi_Vec[i].x.array[:] = 0.0
                 _petsc.assemble_vector(
-                    self._p_vdxi_Vec[i].vector,
+                    self._p_vdxi_Vec[i].x.petsc_vec,
                     self._p_vdxi[i],
                     coeffs=coeffs,
                     constants=np.empty(0, dtype=self._p_vdxi_Vec[i].x.array.dtype),
@@ -499,7 +499,7 @@ class FractionalStep_AB_CN:
         else:
             for i in range(self._mesh.geometry.dim):
                 self._p_vdxi_Vec[i].x.array[:] = 0.0
-                self._p_vdxi_Mat[i].mult(self._ps.vector, self._p_vdxi_Vec[i].vector)
+                self._p_vdxi_Mat[i].mult(self._ps.x.petsc_vec, self._p_vdxi_Vec[i].x.petsc_vec)
                 self._p_vdxi_Vec[i].x.scatter_forward()
 
         # Update RHS
@@ -516,13 +516,13 @@ class FractionalStep_AB_CN:
         errors = np.zeros(self._mesh.geometry.dim, dtype=np.int32)
         for i in range(self._mesh.geometry.dim):
             for bc in self._bcs_u[i]:
-                bc.apply(self._rhs1[i].vector)
+                bc.apply(self._rhs1[i].x.petsc_vec)
 
-            self._u[i].vector.copy(result=self._wrk_comp.vector)
-            errors[i] = self._solver_u.solve(self._rhs1[i].vector, self._u[i])
+            self._u[i].x.petsc_vec.copy(result=self._wrk_comp.x.petsc_vec)
+            errors[i] = self._solver_u.solve(self._rhs1[i].x.petsc_vec, self._u[i])
             # Compute difference from last inner iter
-            self._wrk_comp.vector.axpy(-1, self._u[i].vector)
-            diff += self._wrk_comp.vector.norm(_PETSc.NormType.NORM_2)  # type: ignore
+            self._wrk_comp.x.petsc_vec.axpy(-1, self._u[i].x.petsc_vec)
+            diff += self._wrk_comp.x.petsc_vec.norm(_PETSc.NormType.NORM_2)  # type: ignore
         return diff, errors
 
     def pressure_assemble(self, dt: float):
@@ -536,19 +536,19 @@ class FractionalStep_AB_CN:
         """
         self._b2.x.array[:] = 0.0
         if self._low_memory:
-            _petsc.assemble_vector(self._b2.vector, self._p_rhs[0])
+            _petsc.assemble_vector(self._b2.x.petsc_vec, self._p_rhs[0])
         else:
             for i in range(self._mesh.geometry.dim):
-                self._divu_Mat[i].mult(self._u[i].vector, self._wrk_p.vector)
-                self._b2.vector.axpy(1, self._wrk_p.vector)
+                self._divu_Mat[i].mult(self._u[i].x.petsc_vec, self._wrk_p.x.petsc_vec)
+                self._b2.x.petsc_vec.axpy(1, self._wrk_p.x.petsc_vec)
 
         # Apply boundary conditions to the rhs
         self._b2.x.scatter_reverse(_la.InsertMode.add)
-        self._b2.vector.scale(-1 / dt)
+        self._b2.x.petsc_vec.scale(-1 / dt)
 
         # Set homogenous Dirichlet boundary condition on pressure correction
         bc_p = [bc._bc for bc in self._bcs_p]
-        _petsc.set_bc(self._b2.vector, bc_p)
+        _petsc.set_bc(self._b2.x.petsc_vec, bc_p)
         self._b2.x.scatter_forward()
 
     def pressure_solve(self, nu: Optional[float] = None, rotational: bool = False) -> np.int32:
@@ -570,11 +570,11 @@ class FractionalStep_AB_CN:
             }
             logger.debug(f"Updating PETSc options to {nullspace_options}")
             nullspace = self._Ap.getNullSpace()
-            nullspace.remove(self._b2.vector)
+            nullspace.remove(self._b2.x.petsc_vec)
             self._solver_p.updateOptions(nullspace_options)
             self._solver_p.setOptions(self._Ap)
 
-        converged = self._solver_p.solve(self._b2.vector, self._dp)
+        converged = self._solver_p.solve(self._b2.x.petsc_vec, self._dp)
         if len(self._bcs_p) == 0:
             logger.debug("Making sure that mean of phi is 0 with lack of pressure conditions")
             vol = self._mesh.comm.allreduce(
@@ -611,48 +611,48 @@ class FractionalStep_AB_CN:
         if self._low_memory:
             for i in range(self._mesh.geometry.dim):
                 # Compute M u^{n-1}
-                self._M.mult(self._u[i].vector, self._b3.vector)
+                self._M.mult(self._u[i].x.petsc_vec, self._b3.x.petsc_vec)
 
                 self._wrk_comp.x.array[:] = 0.0
-                _petsc.assemble_vector(self._wrk_comp.vector, self._grad_p[i])
+                _petsc.assemble_vector(self._wrk_comp.x.petsc_vec, self._grad_p[i])
                 self._wrk_comp.x.scatter_reverse(_la.InsertMode.add)
 
                 # Subtract
-                self._b3.vector.axpy(-dt, self._wrk_comp.vector)
+                self._b3.x.petsc_vec.axpy(-dt, self._wrk_comp.x.petsc_vec)
 
                 # Set bcs
                 # bcs_u = [bcu._bc for bcu in self._bcs_u[i]]
                 # self._wrk_comp.x.array[:] = 0
-                # _petsc.apply_lifting(self._wrk_comp.vector, [self._mass_Vi], [bcs_u])
+                # _petsc.apply_lifting(self._wrk_comp.x.petsc_vec, [self._mass_Vi], [bcs_u])
                 # self._wrk_comp.x.scatter_reverse(_la.InsertMode.add)
 
-                # self._b3.vector.axpy(1, self._wrk_comp.vector)
-                # _petsc.set_bc(self._b3.vector, bcs_u)
+                # self._b3.x.petsc_vec.axpy(1, self._wrk_comp.x.petsc_vec)
+                # _petsc.set_bc(self._b3.x.petsc_vec, bcs_u)
                 self._b3.x.scatter_forward()
 
-                errors[i] = self._solver_c.solve(self._b3.vector, self._u[i])
+                errors[i] = self._solver_c.solve(self._b3.x.petsc_vec, self._u[i])
         else:
             for i in range(self._mesh.geometry.dim):
                 # Compute M u^{n-1}
-                self._M.mult(self._u[i].vector, self._b3.vector)
+                self._M.mult(self._u[i].x.petsc_vec, self._b3.x.petsc_vec)
 
                 # Compute dphi/dx_i vi dx
                 self._wrk_comp.x.array[:] = 0.0
-                self._grad_p_Mat[i].mult(self._dp.vector, self._wrk_comp.vector)
+                self._grad_p_Mat[i].mult(self._dp.x.petsc_vec, self._wrk_comp.x.petsc_vec)
 
                 # Subtract
-                self._b3.vector.axpy(-dt, self._wrk_comp.vector)
+                self._b3.x.petsc_vec.axpy(-dt, self._wrk_comp.x.petsc_vec)
 
                 # Set bcs
                 # bcs_u = [bcu._bc for bcu in self._bcs_u[i]]
                 # self._wrk_comp.x.array[:] = 0.
-                # _petsc.apply_lifting(self._wrk_comp.vector, [self._mass_Vi], [bcs_u])
+                # _petsc.apply_lifting(self._wrk_comp.x.petsc_vec, [self._mass_Vi], [bcs_u])
                 # self._wrk_comp.x.scatter_reverse(_la.InsertMode.add)
 
-                # self._b3.vector.axpy(1, self._wrk_comp.vector)
-                # _petsc.set_bc(self._b3.vector, bcs_u)
+                # self._b3.x.petsc_vec.axpy(1, self._wrk_comp.x.petsc_vec)
+                # _petsc.set_bc(self._b3.x.petsc_vec, bcs_u)
                 self._b3.x.scatter_forward()
-                errors[i] = self._solver_c.solve(self._b3.vector, self._u[i])
+                errors[i] = self._solver_c.solve(self._b3.x.petsc_vec, self._u[i])
 
         return errors
 
