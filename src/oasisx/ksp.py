@@ -74,7 +74,7 @@ class KSPSolver:
         b: _PETSc.Vec,  # type: ignore
         x: _fem.Function,
     ) -> np.int32:
-        self._ksp.solve(b, x.vector)
+        self._ksp.solve(b, x.x.petsc_vec)
         x.x.scatter_forward()
         return np.int32(self._ksp.getConvergedReason())
 
