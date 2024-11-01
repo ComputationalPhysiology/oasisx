@@ -43,7 +43,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: python3 -m pip install --break-system-packages ".[test,docs]"
+        run: python3 -m pip install ".[test,docs]"
 
       - name: Build docs
         run: jupyter book build -W docs/
