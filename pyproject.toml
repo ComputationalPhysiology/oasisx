@@ -5,10 +5,10 @@ requires = ["setuptools>=64.4.0", "wheel"]
 [project]
 name = "OasisX"
 authors = [{ name = "Jørgen S. Dokken", email = "dokken@simula.no" }]
-version = "1.1.0"
+version = "1.2.0"
 description = "A modern implementation of Oasis"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = { file = "LICENSE" }
 dependencies = ['numpy', 'fenics-dolfinx>=0.8.0']
 
@@ -16,15 +16,9 @@ dependencies = ['numpy', 'fenics-dolfinx>=0.8.0']
 oasisx = "oasisx.__main__:main"
 
 [project.optional-dependencies]
-test = ["ruff", "mypy", "pytest", "pytest-cov", "isort"]
+test = ["ruff", "mypy", "pytest", "pytest-cov", "isort", "scipy"]
 
-docs = [
-    "jupyter-book",
-    "jupytext",
-    "seaborn",
-    "docutils==0.17.1",
-    # Temporary pin due to https://sourceforge.net/p/docutils/patches/195/
-]
+docs = ["jupyter-book", "jupytext", "seaborn", "docutils"]
 
 binder = ["jupyterlab", "notebook"]
 
