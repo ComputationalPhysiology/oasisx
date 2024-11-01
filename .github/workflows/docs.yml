@@ -8,15 +8,15 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag of DOLFINx docker image'
-        default: 'nightly'
+        description: "Tag of DOLFINx docker image"
+        default: "nightly"
         required: true
         type: string
   workflow_call:
     inputs:
       tag:
-        description: 'Tag of DOLFINx docker image'
-        default: 'nightly'
+        description: "Tag of DOLFINx docker image"
+        default: "nightly"
         required: true
         type: string
 
@@ -28,11 +28,11 @@ jobs:
   get_image:
     runs-on: ubuntu-latest
     outputs:
-      image:  ${{ steps.docker_tag.outputs.image }}
+      image: ${{ steps.docker_tag.outputs.image }}
     steps:
       - id: docker_tag
         run: echo "image=${{ inputs.tag || env.DEFAULT_TAG }}" >> $GITHUB_OUTPUT
-      
+
   build:
     needs: get_image
     runs-on: ubuntu-22.04
