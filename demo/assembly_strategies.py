@@ -117,6 +117,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
 
     t_matvec = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
     t_action = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
+    N = mesh.topology.index_map(mesh.topology.dim).size_global
     for i in range(repeats):
         # Zero out time-dependent matrix
         A.zeroEntries()
@@ -126,7 +127,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
         A.assemble()
 
         # Do mat-vec operations
-        with dolfinx.common.Timer(f"~{P} {i} Matvec strategy") as _:
+        with dolfinx.common.Timer(f"~{P} {i} {N} Matvec strategy") as _:
             A.scale(-0.5)
             A.axpy(1.0 / dt, M)
             A.axpy(-0.5 * nu, K)
@@ -135,7 +136,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
 
         # Compute the vector without using pre-generated matrices
         b_d = dolfinx.fem.Function(V)
-        with dolfinx.common.Timer(f"~{P} {i} Action strategy") as _:
+        with dolfinx.common.Timer(f"~{P} {i} {N} Action strategy"):
             dolfinx.fem.petsc.assemble_vector(b_d.x.petsc_vec, lhs)
             b_d.x.scatter_reverse(dolfinx.la.InsertMode.add)
             b_d.x.scatter_forward()
@@ -143,10 +144,12 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
         assert np.allclose(b.x.array, b_d.x.array)
 
         # Get timings
-        matvec = dolfinx.common.timing(f"~{P} {i} Matvec strategy")
-        action = dolfinx.common.timing(f"~{P} {i} Action strategy")
-        t_matvec[i, :] = mesh.comm.allgather(matvec[1])
-        t_action[i, :] = mesh.comm.allgather(action[1])
+        matvec = dolfinx.common.timing(f"~{P} {i} {N} Matvec strategy")
+        assert matvec[0] == 1
+        action = dolfinx.common.timing(f"~{P} {i} {N} Action strategy")
+        assert action[0] == 1
+        t_matvec[i, :] = mesh.comm.allgather(matvec[1].total_seconds())
+        t_action[i, :] = mesh.comm.allgather(action[1].total_seconds())
 
     return V.dofmap.index_map_bs * V.dofmap.index_map.size_global, t_matvec, t_action
 
