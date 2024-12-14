@@ -177,7 +177,7 @@ for n, N in enumerate(inputs.Ns):
         * (ufl.cos(2 * ufl.pi * x[0]) + ufl.cos(2 * ufl.pi * x[1]))
         * ufl.exp(-4 * ufl.pi**2 * nu * p_time)
     )
-    p_expr = dolfinx.fem.Expression(man_p, solver._Q.element.interpolation_points())
+    p_expr = dolfinx.fem.Expression(man_p, solver._Q.element.interpolation_points)
     solver._p.interpolate(p_expr)
     vtxu = dolfinx.io.VTXWriter(mesh.comm, "u.bp", [solver.u], engine="BP4")
     vtxp = dolfinx.io.VTXWriter(mesh.comm, "p.bp", [solver._p], engine="BP4")
