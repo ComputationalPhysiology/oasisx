@@ -51,6 +51,7 @@ class FractionalStep_AB_CN:
             Default value: True
             '"bc_topological"` `True`/`False`. changes how the Dirichlet dofs are located.
             If True `facet_markers` has to be supplied.
+            `"gamma"`: Penalty parameter for DG enforcement of discontinuous pressure space.
         body_force: List of forces acting in each direction (x,y,z)
     """
 
@@ -117,7 +118,7 @@ class FractionalStep_AB_CN:
     _p: _fem.Function  # Pressure at time t - 1/2 dt
     _dp: _fem.Function  # Pressure correction
     _b2: _fem.Function  # Function for holding RHS of pressure correction
-
+    _gamma = _fem.Constant
     _solver_p: KSPSolver
     _stiffness_Q: _fem.Form  # Compiled form for pressure Laplacian
     _p_rhs: List[_fem.Form]  # List of rhs for pressure correction
@@ -152,8 +153,8 @@ class FractionalStep_AB_CN:
         mesh: _dmesh.Mesh,
         u_element: Union[Tuple[str, int], basix.finite_element.FiniteElement],
         p_element: Union[Tuple[str, int], basix.finite_element.FiniteElement],
-        bcs_u: List[List[DirichletBC]],
-        bcs_p: List[PressureBC],
+        bcs_u: List[List[DirichletBC]]| None,
+        bcs_p: List[PressureBC] | None,
         rotational: bool = False,
         solver_options: Optional[dict] = None,
         jit_options: Optional[dict] = None,
@@ -174,13 +175,21 @@ class FractionalStep_AB_CN:
         except TypeError:
             v_el = u_element  # type: ignore
         try:
-            p_family = basix.finite_element.string_to_family(p_element[0], cellname)  # type: ignore
-            p_el = basix.ufl.element(
-                p_family,
-                cellname,
-                p_element[1],  # type: ignore
-                basix.LagrangeVariant.gll_warped,
-            )
+            try:
+                p_family = basix.finite_element.string_to_family(p_element[0], cellname)  # type: ignore
+                p_el = basix.ufl.element(
+                    p_family,
+                    cellname,
+                    p_element[1],  # type: ignore
+                    basix.LagrangeVariant.gll_warped,
+                )
+            except RuntimeError:
+                p_el = basix.ufl.element(
+                    p_family,
+                    cellname,
+                    p_element[1],  # type: ignore
+                    discontinuous=True
+                )
         except TypeError:
             p_el = p_element  # type: ignore
 
@@ -195,10 +204,13 @@ class FractionalStep_AB_CN:
         self._uab = [_fem.Function(Vi[0], name=f"u_{i}ab") for (i, Vi) in enumerate(self._Vi)]
 
         # Create boundary conditions for velocity spaces
-        self._bcs_u = bcs_u
-        for bc_i, Vi in zip(self._bcs_u, self._Vi):
-            for bc in bc_i:
-                bc.create_bc(Vi[0])
+        if bcs_u is None:
+            self._bcs_u = [[] for _ in range(self._mesh.geometry.dim)]
+        else:
+            self._bcs_u = bcs_u
+            for bc_i, Vi in zip(self._bcs_u, self._Vi):
+                for bc in bc_i:
+                    bc.create_bc(Vi[0])
 
         # Working arrays
         self._wrk_vel = [_fem.Function(Vi[0]) for Vi in self._Vi]
@@ -215,10 +227,14 @@ class FractionalStep_AB_CN:
         self._p = _fem.Function(self._Q)
         self._dp = _fem.Function(self._Q)
         self._b2 = _fem.Function(self._Q)
+        self._gamma = _fem.Constant(mesh, default_scalar_type(options.get("gamma", 1.0)))
 
         # Create boundary conditions for pressure space
         forms: List[List[ufl.form.Form]] = [[] for _ in range(self._mesh.geometry.dim)]
-        self._bcs_p = bcs_p
+        if bcs_p is None:
+            self._bcs_p = []
+        else:
+            self._bcs_p = bcs_p
         for bcp in self._bcs_p:
             bcp.create_bcs(self._Vi[0][0], self._Q)
             for i in range(self._mesh.geometry.dim):
@@ -319,9 +335,23 @@ class FractionalStep_AB_CN:
 
         # Pressure Laplacian/stiffness matrix
         q = ufl.TestFunction(self._Q)
-        self._stiffness_Q = _fem.form(
-            ufl.inner(ufl.grad(p), ufl.grad(q)) * ufl.dx, jit_options=jit_options
-        )
+        p_form =  ufl.inner(ufl.grad(p), ufl.grad(q)) * ufl.dx
+        # Handle discontinuous pressure
+        if self._Q.element.basix_element.discontinuous:
+            n = ufl.FacetNormal(self._mesh)
+            if self._mesh.ufl_domain().is_piecewise_linear_simplex_domain():
+                h= 2.0*ufl.Circumradius(self._mesh)
+            else:
+                H = _fem.functionspace(self._mesh, ("DG", 0))
+                h = _fem.Function(H)
+                num_cells_local = len(h.x.array)
+                h.x.array[:] = self._mesh.h(self._mesh.topology.dim, np.arange(num_cells_local, dtype=np.int32))
+
+            p_form -= ufl.inner(ufl.jump(p, n),  ufl.avg(ufl.grad(q))) *  ufl.dS
+            p_form -= ufl.inner(ufl.avg(ufl.grad(q)), ufl.jump(p, n)) * ufl.dS
+            p_form += self._gamma / ufl.avg(h) * ufl.inner(ufl.jump(p, n), ufl.jump(q, n)) * ufl.dS
+
+        self._stiffness_Q = _fem.form(p_form , jit_options=jit_options)
         self._Ap = _petsc.create_matrix(self._stiffness_Q)
 
         # RHS for pressure correction (unscaled)
