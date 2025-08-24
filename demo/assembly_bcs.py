@@ -84,9 +84,9 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
 
     # Compile form for vector assembly (action)
     dt_inv = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(1.0 / dt))
-    dt_inv.name = "dt_inv"
+    dt_inv.name = "dt_inv"  # type: ignore
     nu_c = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(nu))
-    nu_c.name = "nu"
+    nu_c.name = "nu"  # type: ignore
     rhs = dt_inv * mass - 0.5 * nu_c * stiffness - 0.5 * convection
     rhs_form = dolfinx.fem.form(ufl.action(rhs, u_1), jit_options=jit_options)
 
@@ -264,7 +264,7 @@ def run_parameter_sweep(
         if mesh.comm.rank == 0:
             print(i, P, flush=True)
         dof, new_lhs, new_rhs, oasis_lhs, oasis_rhs, oasis_total, new_total = assembly(
-            mesh, P, repeats=repeats, jit_options=jit_options
+            mesh, int(P), repeats=repeats, jit_options=jit_options
         )
         if mesh.comm.rank == 0:
             print("Writing to dict")

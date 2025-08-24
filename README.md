@@ -13,9 +13,11 @@ The documentation for this repository can be found [here](https://computationalp
 
 Once you have DOLFINx installed, install a compatible version of Oasisx:
 
-- `python3 -m pip install oasisx` (compatible with version 0.8.0 of DOLFINx)
+- `python3 -m pip install oasisx` (compatible with version 0.9.0 of DOLFINx)
 - `python3 -m pip install git+https://github.com/computationalPhysiology/oasisx@main` (compatible with version the main branch of DOLFINx)
 
 #### Other version compatability
-- oasisx v1.0.0 is compatible with DOLFINx v0.7.x
 - The main branch of oasisx aim to be compatible with the main branch of DOLFINx
+- v1.2.0 is compatible iwth DOLFINx v0.9.x
+- v1.1.0 is compatible with DOLFINx v0.8.x
+- v1.0.0 is compatible with DOLFINx v0.7.x

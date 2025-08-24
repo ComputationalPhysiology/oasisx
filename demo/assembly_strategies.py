@@ -83,9 +83,9 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
 
     # Compile form for vector assembly (action)
     dt_inv = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(1.0 / dt))
-    dt_inv.name = "dt_inv"
+    dt_inv.name = "dt_inv"  # type: ignore[attr-defined]
     nu_c = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(nu))
-    nu_c.name = "nu"
+    nu_c.name = "nu"  # type: ignore[attr-defined]
     lhs = dt_inv * mass - 0.5 * nu_c * stiffness - 0.5 * convection
     lhs = dolfinx.fem.form(ufl.action(lhs, u_1), jit_options=jit_options)
 
@@ -169,8 +169,8 @@ def run_parameter_sweep(
     Ps = np.arange(min_degree, max_degree + 1, dtype=np.int32)
     j = 0
     results = {}
-    for i, P in enumerate(Ps):
-        dof, matvec, action = assembly(mesh, P, repeats=repeats, jit_options=jit_options)
+    for P in Ps:
+        dof, matvec, action = assembly(mesh, P, repeats=repeats, jit_options=jit_options)  # type:ignore
         for row in matvec:
             for process in row:
                 results[j] = {

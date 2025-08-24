@@ -230,7 +230,7 @@ for n, N in enumerate(inputs.Ns):
     space_errors[:, n] = [space_time_u_L2, space_time_p_L2]
 
 order = np.argsort(hs)[::-1]
-hs = hs[order]
+hs[:] = hs[order]
 
 space_errors[0, :] = space_errors[0, order]
 space_errors[1, :] = space_errors[1, order]

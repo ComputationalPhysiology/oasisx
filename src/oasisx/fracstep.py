@@ -225,7 +225,7 @@ class FractionalStep_AB_CN:
                 forms[i].append(bcp.rhs(i))
 
         if len(self._bcs_p) > 0:
-            self._p_surf = [_fem.form(sum(form)) for form in forms]
+            self._p_surf = [_fem.form(sum(form, start=ufl.Form([]))) for form in forms]
 
         # Create solvers for each step
         solver_options = {} if solver_options is None else solver_options
@@ -342,7 +342,7 @@ class FractionalStep_AB_CN:
         self._b3 = _fem.Function(self._Vi[0][0])
         if self._low_memory:
             self._grad_p = [
-                _fem.form(self._dp.dx(i) * v * dx, jit_options=jit_options)
+                _fem.form(self._dp.dx(i) * v * dx, jit_options=jit_options)  # type: ignore
                 for i in range(len(self._Vi))
             ]
         else:
@@ -461,7 +461,7 @@ class FractionalStep_AB_CN:
             # Add pressure contribution
             if hasattr(self, "_p_surf") and self._p_surf[i].rank == 1:  # type: ignore
                 self._wrk_comp.x.array[:] = 0
-                _petsc.assemble_vector(self._wrk_comp.x.petsc_vec, self._p_surf[i])
+                _petsc.assemble_vector(self._wrk_comp.x.petsc_vec, self._p_surf[i])  # type: ignore
                 self._wrk_comp.x.scatter_reverse(_la.InsertMode.add)
                 self._b_first[i].x.array[:] += self._wrk_comp.x.array[:]
 
@@ -536,7 +536,7 @@ class FractionalStep_AB_CN:
         """
         self._b2.x.array[:] = 0.0
         if self._low_memory:
-            _petsc.assemble_vector(self._b2.x.petsc_vec, self._p_rhs[0])
+            _petsc.assemble_vector(self._b2.x.petsc_vec, self._p_rhs[0])  # type: ignore
         else:
             for i in range(self._mesh.geometry.dim):
                 self._divu_Mat[i].mult(self._u[i].x.petsc_vec, self._wrk_p.x.petsc_vec)
@@ -614,7 +614,7 @@ class FractionalStep_AB_CN:
                 self._M.mult(self._u[i].x.petsc_vec, self._b3.x.petsc_vec)
 
                 self._wrk_comp.x.array[:] = 0.0
-                _petsc.assemble_vector(self._wrk_comp.x.petsc_vec, self._grad_p[i])
+                _petsc.assemble_vector(self._wrk_comp.x.petsc_vec, self._grad_p[i])  # type: ignore
                 self._wrk_comp.x.scatter_reverse(_la.InsertMode.add)
 
                 # Subtract
