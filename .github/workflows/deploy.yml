@@ -43,13 +43,13 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Download docs artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: documentation
           path: "./documentation"
 
       - name: Download docs artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: code-coverage-report
           path: "./documentation/code-coverage-report"
