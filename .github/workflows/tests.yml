@@ -43,7 +43,7 @@ jobs:
     container: ghcr.io/fenics/dolfinx/dolfinx:${{ needs.get_image.outputs.image }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: "Install oasisx"
         run: python3 -m pip install .[test,docs]
