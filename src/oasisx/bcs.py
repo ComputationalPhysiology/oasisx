@@ -193,9 +193,10 @@ class PressureBC:
     """
 
     _subdomain_data: _dmesh.MeshTags
-    _subdomain_id: Union[np.int32, Tuple[np.int32]]
+    _subdomain_id: Union[np.int32, Tuple[np.int32 | int], int]
     _value: Union[
         np.float64,
+        float,
         _fem.Constant,
         Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
     ]
@@ -208,18 +209,18 @@ class PressureBC:
         self,
         value: Union[
             np.float64,
+            float,
             _fem.Constant,
             Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
         ],
-        marker: Tuple[_dmesh.MeshTags, Union[np.int32, Tuple[np.int32]]],
+        marker: Tuple[_dmesh.MeshTags, Union[np.int32, Tuple[np.int32], int]],
     ):
         self._subdomain_data, self._subdomain_id = marker
         self._value = value
 
     def create_bcs(self, V: _fem.FunctionSpace, Q: _fem.FunctionSpace):
-        """
-        Create boundary conditions for the pressure conditions for a given velocity and
-        pressure function space
+        """.Create boundary conditions for the pressure conditions for a given velocity and
+        pressure function space.
 
         Args:
             V: The velocity function space
@@ -248,7 +249,12 @@ class PressureBC:
         self._rhs = rhs
 
         # Create homogenuous boundary condition for pressure correction eq
-        boundary_facets = self._subdomain_data.find(self._subdomain_id)  # type: ignore
+        if isinstance(self._subdomain_id, tuple):
+            boundary_facets = self._subdomain_data.indices[
+                np.isin(self._subdomain_data.values, np.asarray(self._subdomain_id, dtype=np.int32))
+            ]
+        else:
+            boundary_facets = self._subdomain_data.find(np.int32(self._subdomain_id))
         mesh.topology.create_connectivity(mesh.topology.dim - 1, mesh.topology.dim)
         dofs = _fem.locate_dofs_topological(Q, mesh.topology.dim - 1, boundary_facets)
         self._bc = _fem.dirichletbc(default_scalar_type(0.0), dofs, Q)
@@ -264,6 +270,6 @@ class PressureBC:
     def bc(self) -> _fem.DirichletBC:
         return self._bc
 
-    def rhs(self, i: int) -> _fem.Form:
+    def rhs(self, i: int) -> ufl.form.Form:
         assert i < len(self._rhs)
         return self._rhs[i]

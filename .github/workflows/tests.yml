@@ -39,11 +39,11 @@ jobs:
 
   build:
     needs: get_image
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     container: ghcr.io/fenics/dolfinx/dolfinx:${{ needs.get_image.outputs.image }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: "Install oasisx"
         run: python3 -m pip install .[test,docs]

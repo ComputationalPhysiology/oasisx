@@ -35,12 +35,12 @@ jobs:
 
   build:
     needs: get_image
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     container: ghcr.io/fenics/dolfinx/dolfinx:${{ needs.get_image.outputs.image }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install dependencies
         run: python3 -m pip install ".[test,docs]"

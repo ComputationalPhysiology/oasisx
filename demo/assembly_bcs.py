@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.14.6
+#       jupytext_version: 1.18.1
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -41,6 +41,7 @@ import numpy as np
 import pandas
 import seaborn
 import ufl
+
 
 # -
 
@@ -84,9 +85,9 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
 
     # Compile form for vector assembly (action)
     dt_inv = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(1.0 / dt))
-    dt_inv.name = "dt_inv"
+    dt_inv.name = "dt_inv"  # type: ignore
     nu_c = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(nu))
-    nu_c.name = "nu"
+    nu_c.name = "nu"  # type: ignore
     rhs = dt_inv * mass - 0.5 * nu_c * stiffness - 0.5 * convection
     rhs_form = dolfinx.fem.form(ufl.action(rhs, u_1), jit_options=jit_options)
 
@@ -264,7 +265,7 @@ def run_parameter_sweep(
         if mesh.comm.rank == 0:
             print(i, P, flush=True)
         dof, new_lhs, new_rhs, oasis_lhs, oasis_rhs, oasis_total, new_total = assembly(
-            mesh, P, repeats=repeats, jit_options=jit_options
+            mesh, int(P), repeats=repeats, jit_options=jit_options
         )
         if mesh.comm.rank == 0:
             print("Writing to dict")
@@ -340,9 +341,6 @@ def run_parameter_sweep(
 
 # We use `pandas` and `seaborn` to visualize the results
 
-# +
-
-
 def create_plot(results: dict, outfile: str):
     if MPI.COMM_WORLD.rank == 0:
         df = pandas.DataFrame.from_dict(results, orient="index")
@@ -374,9 +372,6 @@ def create_plot(results: dict, outfile: str):
         plot.set(yscale="log", title="Total assembly")
         plt.grid()
         plt.savefig(f"{outfile}_total.png")
-
-
-# -
 # We start by running the comparison for an increasing number of degrees of freedom on a fixed grid.
 if __name__ == "__main__":
     N = 40

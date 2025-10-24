@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.14.1
+#       jupytext_version: 1.18.1
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -177,7 +177,7 @@ for n, N in enumerate(inputs.Ns):
         * (ufl.cos(2 * ufl.pi * x[0]) + ufl.cos(2 * ufl.pi * x[1]))
         * ufl.exp(-4 * ufl.pi**2 * nu * p_time)
     )
-    p_expr = dolfinx.fem.Expression(man_p, solver._Q.element.interpolation_points())
+    p_expr = dolfinx.fem.Expression(man_p, solver._Q.element.interpolation_points)
     solver._p.interpolate(p_expr)
     vtxu = dolfinx.io.VTXWriter(mesh.comm, "u.bp", [solver.u], engine="BP4")
     vtxp = dolfinx.io.VTXWriter(mesh.comm, "p.bp", [solver._p], engine="BP4")
@@ -230,7 +230,7 @@ for n, N in enumerate(inputs.Ns):
     space_errors[:, n] = [space_time_u_L2, space_time_p_L2]
 
 order = np.argsort(hs)[::-1]
-hs = hs[order]
+hs[:] = hs[order]
 
 space_errors[0, :] = space_errors[0, order]
 space_errors[1, :] = space_errors[1, order]

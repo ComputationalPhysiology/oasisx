@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.14.6
+#       jupytext_version: 1.18.1
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -83,9 +83,9 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
 
     # Compile form for vector assembly (action)
     dt_inv = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(1.0 / dt))
-    dt_inv.name = "dt_inv"
+    dt_inv.name = "dt_inv"  # type: ignore[attr-defined]
     nu_c = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(nu))
-    nu_c.name = "nu"
+    nu_c.name = "nu"  # type: ignore[attr-defined]
     lhs = dt_inv * mass - 0.5 * nu_c * stiffness - 0.5 * convection
     lhs = dolfinx.fem.form(ufl.action(lhs, u_1), jit_options=jit_options)
 
@@ -117,6 +117,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
 
     t_matvec = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
     t_action = np.zeros((repeats, mesh.comm.size), dtype=np.float64)
+    N = mesh.topology.index_map(mesh.topology.dim).size_global
     for i in range(repeats):
         # Zero out time-dependent matrix
         A.zeroEntries()
@@ -126,7 +127,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
         A.assemble()
 
         # Do mat-vec operations
-        with dolfinx.common.Timer(f"~{P} {i} Matvec strategy") as _:
+        with dolfinx.common.Timer(f"~{P} {i} {N} Matvec strategy") as _:
             A.scale(-0.5)
             A.axpy(1.0 / dt, M)
             A.axpy(-0.5 * nu, K)
@@ -135,7 +136,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
 
         # Compute the vector without using pre-generated matrices
         b_d = dolfinx.fem.Function(V)
-        with dolfinx.common.Timer(f"~{P} {i} Action strategy") as _:
+        with dolfinx.common.Timer(f"~{P} {i} {N} Action strategy"):
             dolfinx.fem.petsc.assemble_vector(b_d.x.petsc_vec, lhs)
             b_d.x.scatter_reverse(dolfinx.la.InsertMode.add)
             b_d.x.scatter_forward()
@@ -143,10 +144,12 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
         assert np.allclose(b.x.array, b_d.x.array)
 
         # Get timings
-        matvec = dolfinx.common.timing(f"~{P} {i} Matvec strategy")
-        action = dolfinx.common.timing(f"~{P} {i} Action strategy")
-        t_matvec[i, :] = mesh.comm.allgather(matvec[1])
-        t_action[i, :] = mesh.comm.allgather(action[1])
+        matvec = dolfinx.common.timing(f"~{P} {i} {N} Matvec strategy")
+        assert matvec[0] == 1
+        action = dolfinx.common.timing(f"~{P} {i} {N} Action strategy")
+        assert action[0] == 1
+        t_matvec[i, :] = mesh.comm.allgather(matvec[1].total_seconds())
+        t_action[i, :] = mesh.comm.allgather(action[1].total_seconds())
 
     return V.dofmap.index_map_bs * V.dofmap.index_map.size_global, t_matvec, t_action
 
@@ -166,8 +169,8 @@ def run_parameter_sweep(
     Ps = np.arange(min_degree, max_degree + 1, dtype=np.int32)
     j = 0
     results = {}
-    for i, P in enumerate(Ps):
-        dof, matvec, action = assembly(mesh, P, repeats=repeats, jit_options=jit_options)
+    for P in Ps:
+        dof, matvec, action = assembly(mesh, P, repeats=repeats, jit_options=jit_options)  # type:ignore
         for row in matvec:
             for process in row:
                 results[j] = {
@@ -193,9 +196,6 @@ def run_parameter_sweep(
 
 # We use `pandas` and `seaborn` to visualize the results
 
-# +
-
-
 def create_plot(results: dict, outfile: str):
     if MPI.COMM_WORLD.rank == 0:
         df = pandas.DataFrame.from_dict(results, orient="index")
@@ -213,9 +213,6 @@ def create_plot(results: dict, outfile: str):
 
         plt.grid()
         plt.savefig(outfile)
-
-
-# -
 
 # We start by running the comparison for an increasing number of degrees of freedom on a fixed grid.
 
