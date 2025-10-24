@@ -161,7 +161,7 @@ class FractionalStep_AB_CN:
         options: Optional[dict] = None,
     ):
         self._mesh = mesh
-        cellname = mesh.ufl_cell().cellname()
+        cellname = mesh.ufl_cell().cellname
         try:
             v_family = basix.finite_element.string_to_family(u_element[0], cellname)  # type: ignore
             v_el = basix.ufl.element(
