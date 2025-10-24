@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.14.6
+#       jupytext_version: 1.18.1
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -340,8 +340,6 @@ def run_parameter_sweep(
 
 # We use `pandas` and `seaborn` to visualize the results
 
-# +
-
 
 def create_plot(results: dict, outfile: str):
     if MPI.COMM_WORLD.rank == 0:
@@ -376,7 +374,6 @@ def create_plot(results: dict, outfile: str):
         plt.savefig(f"{outfile}_total.png")
 
 
-# -
 # We start by running the comparison for an increasing number of degrees of freedom on a fixed grid.
 if __name__ == "__main__":
     N = 40
