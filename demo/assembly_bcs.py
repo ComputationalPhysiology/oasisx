@@ -42,7 +42,6 @@ import pandas
 import seaborn
 import ufl
 
-
 # -
 
 
@@ -341,6 +340,7 @@ def run_parameter_sweep(
 
 # We use `pandas` and `seaborn` to visualize the results
 
+
 def create_plot(results: dict, outfile: str):
     if MPI.COMM_WORLD.rank == 0:
         df = pandas.DataFrame.from_dict(results, orient="index")
@@ -372,6 +372,8 @@ def create_plot(results: dict, outfile: str):
         plot.set(yscale="log", title="Total assembly")
         plt.grid()
         plt.savefig(f"{outfile}_total.png")
+
+
 # We start by running the comparison for an increasing number of degrees of freedom on a fixed grid.
 if __name__ == "__main__":
     N = 40

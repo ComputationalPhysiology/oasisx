@@ -196,6 +196,7 @@ def run_parameter_sweep(
 
 # We use `pandas` and `seaborn` to visualize the results
 
+
 def create_plot(results: dict, outfile: str):
     if MPI.COMM_WORLD.rank == 0:
         df = pandas.DataFrame.from_dict(results, orient="index")
@@ -213,6 +214,7 @@ def create_plot(results: dict, outfile: str):
 
         plt.grid()
         plt.savefig(outfile)
+
 
 # We start by running the comparison for an increasing number of degrees of freedom on a fixed grid.
 
