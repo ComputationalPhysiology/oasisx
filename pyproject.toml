@@ -18,7 +18,7 @@ oasisx = "oasisx.__main__:main"
 [project.optional-dependencies]
 test = ["ruff", "mypy", "pytest", "pytest-cov", "isort", "scipy"]
 
-docs = ["jupyter-book", "jupytext", "seaborn", "docutils"]
+docs = ["jupyter-book<2.0", "jupytext", "seaborn", "docutils"]
 
 binder = ["jupyterlab", "notebook"]
 

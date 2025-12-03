@@ -10,6 +10,7 @@ from typing import Callable, List, Optional, Tuple, Union
 from petsc4py import PETSc as _PETSc
 
 import dolfinx.fem as _fem
+import dolfinx.fem.petsc as _petsc
 import dolfinx.mesh as _dmesh
 import numpy as np
 import numpy.typing as npt
@@ -141,7 +142,7 @@ class DirichletBC:
         """
         Apply boundary condition to a PETSc vector
         """
-        _fem.petsc.set_bc(x, [self._bc])
+        _petsc.set_bc(x, [self._bc])
 
 
 class PressureBC:
