@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from petsc4py import PETSc as _petsc
 
-import dolfinx.fem
+import dolfinx.fem.petsc
 import ufl
 
 
