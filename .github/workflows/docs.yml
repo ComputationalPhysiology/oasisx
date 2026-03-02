@@ -49,7 +49,7 @@ jobs:
         run: jupyter book build -W docs/
 
       - name: Upload documentation
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: documentation
           path: ./docs/_build/html
