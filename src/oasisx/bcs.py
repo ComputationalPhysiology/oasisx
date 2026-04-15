@@ -258,7 +258,7 @@ class PressureBC:
             boundary_facets = self._subdomain_data.find(np.int32(self._subdomain_id))
         mesh.topology.create_connectivity(mesh.topology.dim - 1, mesh.topology.dim)
         dofs = _fem.locate_dofs_topological(Q, mesh.topology.dim - 1, boundary_facets)
-        self._bc = _fem.dirichletbc(default_scalar_type(0.0), dofs, Q)
+        self._bc = _fem.dirichletbc(np.dtype(default_scalar_type).type(0.0), dofs, Q)
 
     def update_bc(self):
         """

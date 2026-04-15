@@ -83,9 +83,9 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
     convection_form = dolfinx.fem.form(convection, jit_options=jit_options)
 
     # Compile form for vector assembly (action)
-    dt_inv = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(1.0 / dt))
+    dt_inv = dolfinx.fem.Constant(mesh, np.dtype(dolfinx.default_scalar_type).type(1.0 / dt))
     dt_inv.name = "dt_inv"  # type: ignore
-    nu_c = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(nu))
+    nu_c = dolfinx.fem.Constant(mesh, np.dtype(dolfinx.default_scalar_type).type(nu))
     nu_c.name = "nu"  # type: ignore
     rhs = dt_inv * mass - 0.5 * nu_c * stiffness - 0.5 * convection
     rhs_form = dolfinx.fem.form(ufl.action(rhs, u_1), jit_options=jit_options)
@@ -96,7 +96,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
     M.setOption(PETSc.Mat.Option.SYMMETRIC, True)  # type: ignore
     M.setOption(PETSc.Mat.Option.SYMMETRY_ETERNAL, True)  # type: ignore
     M.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)  # type: ignore
-    dolfinx.fem.petsc.assemble_matrix(M, mass_form)
+    dolfinx.fem.petsc.assemble_matrix(M, mass_form)  # type: ignore
     M.assemble()
     M.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)  # type: ignore
 
@@ -105,7 +105,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = No
     K.setOption(PETSc.Mat.Option.SYMMETRIC, True)  # type: ignore
     K.setOption(PETSc.Mat.Option.SYMMETRY_ETERNAL, True)  # type: ignore
     K.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)  # type: ignore
-    dolfinx.fem.petsc.assemble_matrix(K, stiffness_form)
+    dolfinx.fem.petsc.assemble_matrix(K, stiffness_form)  # type: ignore
     K.assemble()
     K.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)  # type: ignore
 

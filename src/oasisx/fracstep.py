@@ -67,7 +67,7 @@ class FractionalStep_AB_CN:
 
     # Mass matrix for velocity component
     _mass_Vi: _fem.Form
-    _M: _PETSc.Mat  # type: ignore
+    _M: _PETSc.Mat
 
     # Boundary conditions
     _bcs_u: List[List[DirichletBC]]
@@ -82,7 +82,7 @@ class FractionalStep_AB_CN:
     _ps: _fem.Function  # Tentative pressure
 
     # Linear algebra structures structures
-    _A: _PETSc.Mat  # type: ignore
+    _A: _PETSc.Mat
     _rhs1: List[_fem.Function]  # RHS for each component of the tentative velocity
     _solver_u: KSPSolver
 
@@ -92,12 +92,12 @@ class FractionalStep_AB_CN:
 
     # Stiffness matrix for velocity component
     _stiffness_Vi: _fem.Form
-    _K: _PETSc.Mat  # type: ignore
+    _K: _PETSc.Mat
 
     _p_vdxi: List[_fem.Form]  # Volume contributions of tentative pressure to RHS
-    _p_vdxi_Mat: List[_PETSc.Mat]  # type: ignore
+    _p_vdxi_Mat: List[_PETSc.Mat]
     # Low memory version
-    _p_vdxi_Vec: List[_PETSc.Vec]  # type: ignore
+    _p_vdxi_Vec: List[_fem.Function]
 
     # Body forces
     _b0: List[_fem.Function]
@@ -236,8 +236,8 @@ class FractionalStep_AB_CN:
             mesh.comm, solver_options.get("pressure"), prefix="pressure_correction"
         )
         if rotational:
-            self._xi = _fem.Constant(mesh, default_scalar_type(0.5))
-            self._nu = _fem.Constant(mesh, default_scalar_type(1))
+            self._xi = _fem.Constant(mesh, np.dtype(default_scalar_type).type(0.5))
+            self._nu = _fem.Constant(mesh, np.dtype(default_scalar_type).type(1))
             update_expr = self._p + self._dp - self._xi * self._nu * ufl.div(ufl.as_vector(self._u))
             self._projector_p = Projector(
                 update_expr,
@@ -551,7 +551,9 @@ class FractionalStep_AB_CN:
         _petsc.set_bc(self._b2.x.petsc_vec, bc_p)
         self._b2.x.scatter_forward()
 
-    def pressure_solve(self, nu: Optional[float] = None, rotational: bool = False) -> np.int32:
+    def pressure_solve(
+        self, nu: Optional[float] = None, rotational: bool = False
+    ) -> _PETSc.KSP.ConvergedReason:
         """
         Solve pressure correction problem
         """
@@ -597,7 +599,7 @@ class FractionalStep_AB_CN:
                     "Kinematic viscosity not set for rotational pressure correction"
                 )
             error = self._projector_p.solve(assemble_rhs=True)
-            assert error > 0
+            assert int(error) > 0  # type: ignore
             self._ps.x.array[:] = self._projector_p.x.x.array[:]
         else:
             self._ps.x.array[:] = self._p.x.array[:] + self._dp.x.array
@@ -680,7 +682,7 @@ class FractionalStep_AB_CN:
             assert (errors > 0).all()
             self.pressure_assemble(dt)
             error_p = self.pressure_solve(nu=nu)
-            assert error_p > 0
+            assert int(error_p) > 0  # type: ignore
 
         self.velocity_update(dt)
 

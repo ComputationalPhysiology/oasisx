@@ -39,14 +39,14 @@ class U:
         self.t = t
         self.nu = nu
 
-    def eval_x(self, x: npt.NDArray[np.float64]) -> npt.NDArray[dolfinx.default_scalar_type]:
+    def eval_x(self, x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         return (
             -np.cos(np.pi * x[0])
             * np.sin(np.pi * x[1])
             * np.exp(-2.0 * self.nu * np.pi**2 * float(self.t))
         )
 
-    def eval_y(self, x: npt.NDArray[np.float64]) -> npt.NDArray[dolfinx.default_scalar_type]:
+    def eval_y(self, x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         return (
             np.cos(np.pi * x[1])
             * np.sin(np.pi * x[0])
@@ -140,8 +140,10 @@ for n, N in enumerate(inputs.Ns):
     sort = np.argsort(facets)
     facet_tags = dolfinx.mesh.meshtags(mesh, dim, facets[sort], values[sort])
 
-    u_time = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(T_start))
-    p_time = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(T_start - dt / 2.0))
+    u_time = dolfinx.fem.Constant(mesh, np.dtype(dolfinx.default_scalar_type).type(T_start))
+    p_time = dolfinx.fem.Constant(
+        mesh, np.dtype(dolfinx.default_scalar_type).type(T_start - dt / 2.0)
+    )
     u_ex = U(t=u_time, nu=nu)
 
     bcx = oasisx.DirichletBC(u_ex.eval_x, oasisx.LocatorMethod.TOPOLOGICAL, (facet_tags, value))
