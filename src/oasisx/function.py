@@ -35,13 +35,13 @@ class Projector:
     """
 
     # The mass matrix
-    _A: _petsc.Mat  # type: ignore
+    _A: _petsc.Mat
     # The rhs vector
-    _b: _petsc.Vec  # type: ignore
+    _b: dolfinx.fem.Function
     _lhs: dolfinx.fem.forms.Form  # The compiled form for the mass matrix
     _rhs: dolfinx.fem.forms.Form  # The compiled form form the rhs vector
     # The PETSc solver
-    _ksp: _petsc.KSP  # type: ignore
+    _ksp: _petsc.KSP
     _x: dolfinx.fem.Function  # The solution vector
     _bcs: List[dolfinx.fem.DirichletBC]
     __slots__ = tuple(__annotations__)
@@ -90,7 +90,7 @@ class Projector:
         opts.prefixPush(prefix)
         self._ksp.setOptionsPrefix(prefix)
         for k, v in petsc_options.items():
-            opts[k] = v
+            opts.setValue(k, v)
         opts.prefixPop()
         self._ksp.setFromOptions()
 
@@ -100,8 +100,8 @@ class Projector:
         self._b.x.petsc_vec.setOptionsPrefix(prefix)
         self._b.x.petsc_vec.setFromOptions()
 
-        for opt in opts.getAll().keys():
-            del opts[opt]
+        for k, v in petsc_options.items():
+            opts.delValue(f"{prefix}{k}")
 
         # Setup preconditioner
         self._ksp.getPC().setUp()
@@ -119,7 +119,7 @@ class Projector:
             dolfinx.fem.petsc.set_bc(self._b.x.petsc_vec, self._bcs)
         self._b.x.scatter_forward()
 
-    def solve(self, assemble_rhs: bool = True) -> int:
+    def solve(self, assemble_rhs: bool = True) -> _petsc.KSP.ConvergedReason:
         """
         Compute projection using PETSc a KSP solver
 
@@ -131,7 +131,7 @@ class Projector:
 
         self._ksp.solve(self._b.x.petsc_vec, self._x.x.petsc_vec)
         self._x.x.scatter_forward()
-        return int(self._ksp.getConvergedReason())
+        return self._ksp.getConvergedReason()
 
     @property
     def x(self):

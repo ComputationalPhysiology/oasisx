@@ -9,7 +9,6 @@ from mpi4py import MPI
 from petsc4py import PETSc as _PETSc
 
 import dolfinx.fem as _fem
-import numpy as np
 
 
 class KSPSolver:
@@ -47,11 +46,11 @@ class KSPSolver:
         opts = _PETSc.Options()  # type: ignore
         opts.prefixPush(self._prefix)
         for k, v in options.items():
-            opts[k] = v
-        opts.prefixPop()
+            opts.setValue(k, v)
         self._ksp.setFromOptions()
-        for opt in opts.getAll().keys():
-            del opts[opt]
+        opts.prefixPop()
+        for k, v in options.items():
+            opts.delValue(f"{self._prefix}{k}")
 
     def setOptions(self, op: typing.Union[_PETSc.Mat, _PETSc.Vec]):  # type: ignore
         prefix = self._ksp.getOptionsPrefix()
@@ -73,10 +72,10 @@ class KSPSolver:
         self,
         b: _PETSc.Vec,  # type: ignore
         x: _fem.Function,
-    ) -> np.int32:
+    ) -> _PETSc.KSP.ConvergedReason:
         self._ksp.solve(b, x.x.petsc_vec)
         x.x.scatter_forward()
-        return np.int32(self._ksp.getConvergedReason())
+        return self._ksp.getConvergedReason()
 
     def __del__(self):
         """

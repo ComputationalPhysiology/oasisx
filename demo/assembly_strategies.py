@@ -82,9 +82,9 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
     convection_form = dolfinx.fem.form(convection, jit_options=jit_options)
 
     # Compile form for vector assembly (action)
-    dt_inv = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(1.0 / dt))
+    dt_inv = dolfinx.fem.Constant(mesh, np.dtype(dolfinx.default_scalar_type).type(1.0 / dt))
     dt_inv.name = "dt_inv"  # type: ignore[attr-defined]
-    nu_c = dolfinx.fem.Constant(mesh, dolfinx.default_scalar_type(nu))
+    nu_c = dolfinx.fem.Constant(mesh, np.dtype(dolfinx.default_scalar_type).type(nu))
     nu_c.name = "nu"  # type: ignore[attr-defined]
     lhs = dt_inv * mass - 0.5 * nu_c * stiffness - 0.5 * convection
     lhs = dolfinx.fem.form(ufl.action(lhs, u_1), jit_options=jit_options)
@@ -95,7 +95,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
     M.setOption(PETSc.Mat.Option.SYMMETRIC, True)  # type: ignore
     M.setOption(PETSc.Mat.Option.SYMMETRY_ETERNAL, True)  # type: ignore
     M.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)  # type: ignore
-    dolfinx.fem.petsc.assemble_matrix(M, mass_form)
+    dolfinx.fem.petsc.assemble_matrix(M, mass_form)  # type: ignore
     M.assemble()
     M.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)  # type: ignore
 
@@ -104,7 +104,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
     K.setOption(PETSc.Mat.Option.SYMMETRIC, True)  # type: ignore
     K.setOption(PETSc.Mat.Option.SYMMETRY_ETERNAL, True)  # type: ignore
     K.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)  # type: ignore
-    dolfinx.fem.petsc.assemble_matrix(K, stiffness_form)
+    dolfinx.fem.petsc.assemble_matrix(K, stiffness_form)  # type: ignore
     K.assemble()
     K.setOption(PETSc.Mat.Option.NEW_NONZERO_LOCATIONS, False)  # type: ignore
 
@@ -123,7 +123,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
         A.zeroEntries()
 
         # Add convection term
-        dolfinx.fem.petsc.assemble_matrix(A, convection_form)
+        dolfinx.fem.petsc.assemble_matrix(A, convection_form)  # type: ignore
         A.assemble()
 
         # Do mat-vec operations
