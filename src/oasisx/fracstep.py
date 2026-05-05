@@ -4,7 +4,6 @@
 # SPDX-License-Identifier:    MIT
 
 import logging
-from typing import List, Optional, Tuple, Union
 
 from mpi4py import MPI as _MPI
 from petsc4py import PETSc as _PETSc
@@ -38,8 +37,8 @@ class FractionalStep_AB_CN:
             degree of the element used for the velocity
         p_element: A tuple describing the finite element family and
             degree of the element used for the pressure
-        bcs_u: List of Dirichlet BCs for each component of the velocity
-        bcs_p: List of Dirichlet BCs for the pressure
+        bcs_u: list of Dirichlet BCs for each component of the velocity
+        bcs_p: list of Dirichlet BCs for the pressure
         rotational: If True, use rotational form of pressure update
         solver_options: Dictionary with keys `'tentative'`, `'pressure'` and `'scalar'`,
             where each key leads to a dictionary of of PETSc options for each problem
@@ -51,7 +50,7 @@ class FractionalStep_AB_CN:
             Default value: True
             '"bc_topological"` `True`/`False`. changes how the Dirichlet dofs are located.
             If True `facet_markers` has to be supplied.
-        body_force: List of forces acting in each direction (x,y,z)
+        body_force: list of forces acting in each direction (x,y,z)
     """
 
     # -----------------------Multi-step variables-------------------------------
@@ -61,7 +60,7 @@ class FractionalStep_AB_CN:
     _sol_u: _fem.Function  # Tentative velocity as vector function (for outputting)
 
     # Velocity component and mapping to parent space
-    _Vi: List[Tuple[_fem.FunctionSpace, npt.NDArray[np.int32]]]
+    _Vi: list[tuple[_fem.FunctionSpace, list[npt.NDArray[np.int32]]]]
     _V: _fem.FunctionSpace  # Velocity function space
     _Q: _fem.FunctionSpace  # Pressure function space
 
@@ -70,43 +69,43 @@ class FractionalStep_AB_CN:
     _M: _PETSc.Mat
 
     # Boundary conditions
-    _bcs_u: List[List[DirichletBC]]
-    _bcs_p: List[PressureBC]
+    _bcs_u: list[list[DirichletBC]]
+    _bcs_p: list[PressureBC]
 
     # -----------------------Tentative velocity step----------------------------
 
     # Coefficients of velocity and pressure
-    _u: List[_fem.Function]  # Velocity at time t
-    _u1: List[_fem.Function]  # Velocity at time t - dt
-    _u2: List[_fem.Function]  # Velocity at time t - 2*dt
+    _u: list[_fem.Function]  # Velocity at time t
+    _u1: list[_fem.Function]  # Velocity at time t - dt
+    _u2: list[_fem.Function]  # Velocity at time t - 2*dt
     _ps: _fem.Function  # Tentative pressure
 
     # Linear algebra structures structures
     _A: _PETSc.Mat
-    _rhs1: List[_fem.Function]  # RHS for each component of the tentative velocity
+    _rhs1: list[_fem.Function]  # RHS for each component of the tentative velocity
     _solver_u: KSPSolver
 
     # Adams-Bashforth convection term
     _conv_Vi: _fem.Form
-    _uab: List[_fem.Function]  # Explicit part of Adam Bashforth convection term
+    _uab: list[_fem.Function]  # Explicit part of Adam Bashforth convection term
 
     # Stiffness matrix for velocity component
     _stiffness_Vi: _fem.Form
     _K: _PETSc.Mat
 
-    _p_vdxi: List[_fem.Form]  # Volume contributions of tentative pressure to RHS
-    _p_vdxi_Mat: List[_PETSc.Mat]
+    _p_vdxi: list[_fem.Form]  # Volume contributions of tentative pressure to RHS
+    _p_vdxi_Mat: list[_PETSc.Mat]
     # Low memory version
-    _p_vdxi_Vec: List[_fem.Function]
+    _p_vdxi_Vec: list[_fem.Function]
 
     # Body forces
-    _b0: List[_fem.Function]
-    _body_force: List[_fem.Form]
-    _b_first: List[_fem.Function]  # RHS consisting of all variables from previous time step
-    _p_surf: List[_fem.Form]  # Surface terms for pressure at outlets at t-1/2
+    _b0: list[_fem.Function]
+    _body_force: list[_fem.Form]
+    _b_first: list[_fem.Function]  # RHS consisting of all variables from previous time step
+    _p_surf: list[_fem.Form]  # Surface terms for pressure at outlets at t-1/2
 
     # Working arrays
-    _wrk_vel: List[_fem.Function]  # Working arrays for velocity space
+    _wrk_vel: list[_fem.Function]  # Working arrays for velocity space
     _wrk_comp: _fem.Function
 
     # Indicating if grad(p)*v*dx and div(u)*q*dx term is assembled as
@@ -120,26 +119,26 @@ class FractionalStep_AB_CN:
 
     _solver_p: KSPSolver
     _stiffness_Q: _fem.Form  # Compiled form for pressure Laplacian
-    _p_rhs: List[_fem.Form]  # List of rhs for pressure correction
+    _p_rhs: list[_fem.Form]  # list of rhs for pressure correction
     # Matrices for non-low memory version of RHS assembly
-    _divu_Mat: List[_PETSc.Mat]  # type: ignore
+    _divu_Mat: list[_PETSc.Mat]  # type: ignore
     # Pressure Laplacian
     _Ap: _PETSc.Mat  # type: ignore
     _wrk_p: _fem.Function  # Working vector for matrix vector    products in non-low memory version
 
     # Rotational pressure correction variables
-    _projector_p: Optional[Projector]
-    _xi: Optional[_fem.Constant]
-    _nu: Optional[_fem.Constant]
+    _projector_p: Projector | None
+    _xi: _fem.Constant | None
+    _nu: _fem.Constant | None
 
     # ----------------------Velocity update-------------------------------------
     _solver_c: KSPSolver
 
     # grad_i(phi) v_i operator
-    _grad_p: List[_fem.Form]
-    _grad_p_Mat: List[_PETSc.Mat]  # type: ignore
+    _grad_p: list[_fem.Form]
+    _grad_p_Mat: list[_PETSc.Mat]  # type: ignore
     # Low memory version
-    _grad_p_Vec: List[_PETSc.Vec]  # type: ignore
+    _grad_p_Vec: list[_PETSc.Vec]  # type: ignore
     _b3: _fem.Function
     # Mass matrix with bcs applied
     _M_bcs: _PETSc.Mat  # type: ignore
@@ -150,15 +149,15 @@ class FractionalStep_AB_CN:
     def __init__(
         self,
         mesh: _dmesh.Mesh,
-        u_element: Union[Tuple[str, int], basix.finite_element.FiniteElement],
-        p_element: Union[Tuple[str, int], basix.finite_element.FiniteElement],
-        bcs_u: List[List[DirichletBC]],
-        bcs_p: List[PressureBC],
+        u_element: tuple[str, int] | basix.finite_element.FiniteElement,
+        p_element: tuple[str, int] | basix.finite_element.FiniteElement,
+        bcs_u: list[list[DirichletBC]],
+        bcs_p: list[PressureBC],
         rotational: bool = False,
-        solver_options: Optional[dict] = None,
-        jit_options: Optional[dict] = None,
-        body_force: Optional[ufl.core.expr.Expr] = None,
-        options: Optional[dict] = None,
+        solver_options: dict | None = None,
+        jit_options: dict | None = None,
+        body_force: ufl.core.expr.Expr | None = None,
+        options: dict | None = None,
     ):
         self._mesh = mesh
         cellname = mesh.ufl_cell().cellname
@@ -217,7 +216,7 @@ class FractionalStep_AB_CN:
         self._b2 = _fem.Function(self._Q)
 
         # Create boundary conditions for pressure space
-        forms: List[List[ufl.form.Form]] = [[] for _ in range(self._mesh.geometry.dim)]
+        forms: list[list[ufl.form.Form]] = [[] for _ in range(self._mesh.geometry.dim)]
         self._bcs_p = bcs_p
         for bcp in self._bcs_p:
             bcp.create_bcs(self._Vi[0][0], self._Q)
@@ -506,7 +505,7 @@ class FractionalStep_AB_CN:
         for i in range(self._mesh.geometry.dim):
             self._rhs1[i].x.array[:] = self._b_first[i].x.array + self._p_vdxi_Vec[i].x.array
 
-    def velocity_tentative_solve(self) -> Tuple[float, npt.NDArray[np.int32]]:
+    def velocity_tentative_solve(self) -> tuple[float, npt.NDArray[np.int32]]:
         """
         Apply Dirichlet boundary condition to RHS vector and solver linear algebra system
 
@@ -552,7 +551,7 @@ class FractionalStep_AB_CN:
         self._b2.x.scatter_forward()
 
     def pressure_solve(
-        self, nu: Optional[float] = None, rotational: bool = False
+        self, nu: float | None = None, rotational: bool = False
     ) -> _PETSc.KSP.ConvergedReason:
         """
         Solve pressure correction problem
@@ -593,7 +592,7 @@ class FractionalStep_AB_CN:
 
         if self._projector_p is not None:
             if nu is not None and self._nu is not None:
-                self._nu.value = nu
+                self._nu.value = np.asarray(nu)
             else:
                 raise RuntimeWarning(
                     "Kinematic viscosity not set for rotational pressure correction"
