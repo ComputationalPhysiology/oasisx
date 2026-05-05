@@ -22,7 +22,6 @@
 
 import argparse
 import logging
-from typing import List
 
 from mpi4py import MPI
 
@@ -150,7 +149,7 @@ for n, N in enumerate(inputs.Ns):
     bcy = oasisx.DirichletBC(u_ex.eval_y, oasisx.LocatorMethod.TOPOLOGICAL, (facet_tags, value))
 
     bcs_u = [[bcx], [bcy]]
-    bcs_p: List[oasisx.PressureBC] = []
+    bcs_p: list[oasisx.PressureBC] = []
     # Create fractional step solver
     solver = oasisx.FractionalStep_AB_CN(
         mesh,
@@ -209,8 +208,8 @@ for n, N in enumerate(inputs.Ns):
         logger.debug(f"{float(u_time.value)}, {error_u=}")
         logger.debug(f"{float(p_time.value)}, {error_p=}")
         logger.debug("*" * 10)
-        vtxp.write(p_time.value)
-        vtxu.write(u_time.value)
+        vtxp.write(float(p_time.value))
+        vtxu.write(float(u_time.value))
         error_space_time[:, i] = [error_u, error_p]
 
     vtxu.close()

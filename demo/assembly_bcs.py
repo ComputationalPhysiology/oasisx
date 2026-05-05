@@ -29,7 +29,6 @@
 # +
 # This is a test to check notebooks
 import time
-import typing
 
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -45,7 +44,7 @@ import ufl
 # -
 
 
-def assembly(mesh, P: int, repeats: int, jit_options: typing.Optional[dict] = None):
+def assembly(mesh, P: int, repeats: int, jit_options: dict | None = None):
     V = dolfinx.fem.functionspace(mesh, ("Lagrange", int(P)))
 
     def f(x):

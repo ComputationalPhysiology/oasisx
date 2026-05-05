@@ -3,8 +3,6 @@
 # This file is part of Oasisx
 # SPDX-License-Identifier:    MIT
 
-from typing import List, Optional, Tuple
-
 from mpi4py import MPI
 from petsc4py import PETSc
 
@@ -44,14 +42,14 @@ def gather_PETScMatrix(
 
 def create_tentative_forms(
     mesh: dolfinx.mesh.Mesh,
-    el_u: Tuple[str, int],
-    el_p: Tuple[str, int],
+    el_u: tuple[str, int],
+    el_p: tuple[str, int],
     dt: float,
     nu: float,
-    f: Optional[npt.NDArray[np.float64]],
-) -> Tuple[
+    f: npt.NDArray[np.float64] | None,
+) -> tuple[
     ufl.Form,
-    List[ufl.Form],
+    list[ufl.Form],
     dolfinx.fem.Function,
     dolfinx.fem.Function,
     dolfinx.fem.Function,

@@ -26,8 +26,6 @@
 # We start by importing the necessary modules
 
 
-from typing import Optional
-
 from mpi4py import MPI
 from petsc4py import PETSc
 
@@ -55,7 +53,7 @@ import ufl
 # as we are not solving a full problem here.
 
 
-def assembly(mesh, P: int, repeats: int, jit_options: Optional[dict] = None):
+def assembly(mesh, P: int, repeats: int, jit_options: dict | None = None):
     V = dolfinx.fem.functionspace(mesh, ("Lagrange", int(P)))
     dt = 0.5
     nu = 0.3

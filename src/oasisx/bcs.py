@@ -5,7 +5,7 @@
 
 
 from enum import Enum
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable
 
 from petsc4py import PETSc as _PETSc
 
@@ -69,33 +69,27 @@ class DirichletBC:
     """
 
     _method: LocatorMethod
-    _entities: npt.NDArray[np.int32]  # List of entities local to process
+    _entities: npt.NDArray[np.int32]  # list of entities local to process
     _e_dim: int  # Dimension of entities
 
     _locator: Callable[[npt.NDArray[np.float64]], npt.NDArray[np.bool_]]
     _dofs: npt.NDArray[np.int32]
-    _value: Union[
-        np.float64,
-        _fem.Constant,
-        Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
-    ]
+    _value: (
+        np.float64 | _fem.Constant | Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+    )
     _bc: _fem.DirichletBC
-    _u: Optional[_fem.Function]
+    _u: _fem.Function | None
 
     __slots__ = tuple(__annotations__)
 
     def __init__(
         self,
-        value: Union[
-            np.float64,
-            _fem.Constant,
-            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
-        ],
+        value: np.float64
+        | _fem.Constant
+        | Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
         method: LocatorMethod,
-        marker: Union[
-            Tuple[_dmesh.MeshTags, np.int32],
-            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.bool_]],
-        ],
+        marker: tuple[_dmesh.MeshTags, np.int32]
+        | Callable[[npt.NDArray[np.float64]], npt.NDArray[np.bool_]],
     ):
         if method == LocatorMethod.GEOMETRICAL:
             self._method = method
@@ -154,7 +148,7 @@ class PressureBC:
         value: The value the degrees of freedom should have. It can be a float, a
             `dolfinx.fem.Constant` or a lambda-function. If `value` is a lambda-function it
             is interpolated into the pressure space.
-        marker:  Tuple of a mesh tag and the corresponding value for the entities to assign
+        marker:  tuple of a mesh tag and the corresponding value for the entities to assign
             Dirichlet conditions to. The meshtag dimension has to be `mesh.topology.dim -1`.
 
 
@@ -194,27 +188,25 @@ class PressureBC:
     """
 
     _subdomain_data: _dmesh.MeshTags
-    _subdomain_id: Union[np.int32, Tuple[np.int32 | int], int]
-    _value: Union[
-        np.float64,
-        float,
-        _fem.Constant,
-        Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
-    ]
+    _subdomain_id: np.int32 | tuple[np.int32 | int] | int
+    _value: (
+        np.float64
+        | float
+        | _fem.Constant
+        | Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+    )
     _u: _fem.Function
-    _rhs: List[ufl.form.Form]
+    _rhs: list[ufl.form.Form]
     _bc: _fem.DirichletBC
     __slots__ = tuple(__annotations__)
 
     def __init__(
         self,
-        value: Union[
-            np.float64,
-            float,
-            _fem.Constant,
-            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
-        ],
-        marker: Tuple[_dmesh.MeshTags, Union[np.int32, Tuple[np.int32], int]],
+        value: np.float64
+        | float
+        | _fem.Constant
+        | Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+        marker: tuple[_dmesh.MeshTags, np.int32 | tuple[np.int32] | int],
     ):
         self._subdomain_data, self._subdomain_id = marker
         self._value = value

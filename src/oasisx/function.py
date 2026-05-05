@@ -3,7 +3,6 @@
 # This file is part of Oasisx
 # SPDX-License-Identifier:    MIT
 
-from typing import List, Optional
 
 from petsc4py import PETSc as _petsc
 
@@ -27,7 +26,7 @@ class Projector:
     Args:
         function: UFL expression of function to project
         space: Space to project function into
-        bcs: List of BCS to apply to projection
+        bcs: list of BCS to apply to projection
         petsc_options: Options to pass to PETSc
         jit_options: Options to pass to just in time compiler
         form_compiler_options: Options to pass to the form compiler
@@ -43,18 +42,18 @@ class Projector:
     # The PETSc solver
     _ksp: _petsc.KSP
     _x: dolfinx.fem.Function  # The solution vector
-    _bcs: List[dolfinx.fem.DirichletBC]
+    _bcs: list[dolfinx.fem.DirichletBC]
     __slots__ = tuple(__annotations__)
 
     def __init__(
         self,
         function: ufl.core.expr.Expr,
         space: dolfinx.fem.FunctionSpace,
-        bcs: Optional[List[dolfinx.fem.DirichletBC]] = None,
-        petsc_options: Optional[dict] = None,
-        jit_options: Optional[dict] = None,
-        form_compiler_options: Optional[dict] = None,
-        metadata: Optional[dict] = None,
+        bcs: list[dolfinx.fem.DirichletBC] | None = None,
+        petsc_options: dict | None = None,
+        jit_options: dict | None = None,
+        form_compiler_options: dict | None = None,
+        metadata: dict | None = None,
     ):
         petsc_options = {} if petsc_options is None else petsc_options
         jit_options = {} if jit_options is None else jit_options
