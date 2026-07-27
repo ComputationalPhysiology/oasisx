@@ -115,9 +115,9 @@ f = None
 options = {"low_memory_version": inputs.lm}
 
 solver_options = {
-    "tentative": {"ksp_type": "preonly", "pc_type": "lu"},
-    "pressure": {"ksp_type": "preonly", "pc_type": "lu"},
-    "scalar": {"ksp_type": "preonly", "pc_type": "lu"},
+    "tentative": {"ksp_type": "preonly", "pc_type": "lu", "error_if_not_converged": True},
+    "pressure": {"ksp_type": "preonly", "pc_type": "lu", "error_if_not_converged": True},
+    "scalar": {"ksp_type": "preonly", "pc_type": "lu", "error_if_not_converged": True},
 }
 
 space_errors = np.zeros((2, len(inputs.Ns)), dtype=np.float64)
@@ -199,7 +199,7 @@ for n, N in enumerate(inputs.Ns):
     for i in range(num_steps):
         u_time.value += dt
         p_time.value += dt
-
+        print(i, dt, u_time.value, p_time.value)
         solver.solve(dt, nu, max_iter=1)
         L2_u_loc = dolfinx.fem.assemble_scalar(L2_u)
         error_u = mesh.comm.allreduce(L2_u_loc, op=MPI.SUM)

@@ -252,26 +252,26 @@ for i in range(num_time_steps):
     # Compute convecting velocity for C
     for j in range(components):
         bar_u[j][:] = 0
-        bar_u[j]+= 1.5 * u_1[j]
-        bar_u[j]+= -0.5 * u_2[j]
+        bar_u[j] += 1.5 * u_1[j]
+        bar_u[j] += -0.5 * u_2[j]
     # Compute 0.5C
     A = assemble_C_matrix()
     A.scale(0.5)
     # Add mass matrix
-    A.axpy(1/dt, M)
+    A.axpy(1 / dt, M)
 
-    #Add stiffness matrix
-    A.axpy(-0.5*nu, K)
+    # Add stiffness matrix
+    A.axpy(-0.5 * nu, K)
 
     # Compute matrix vector product and add to RHS
     for j in range(components):
         b[j] = body_forces
         b_tmp[j] = A * u_1[j]
-        b[j]+= b_tmp[j]
+        b[j] += b_tmp[j]
 
     # Reset A for LHS
     A.scale(-1)
-    A.xpy(2/dt, M)
+    A.xpy(2 / dt, M)
 
     #
 ```
@@ -289,22 +289,23 @@ for i in range(num_time_steps):
     # Compute convecting veloctiy for C
     for j in range(components):
         bar_u[j][:] = 0
-        bar_u[j]+= 1.5 * u_1[j]
-        bar_u[j]+= -0.5 * u_2[j]
+        bar_u[j] += 1.5 * u_1[j]
+        bar_u[j] += -0.5 * u_2[j]
 
     # Assemble RHS
     for j in range(components):
-        b[j] = assemble_vector(body_forces[j] + mass_terms[j] \
-            + stiffness_terms[j] + convective_terms[j])
+        b[j] = assemble_vector(
+            body_forces[j] + mass_terms[j] + stiffness_terms[j] + convective_terms[j]
+        )
 
     # Compute -0.5C
     A = assemble_C_matrix()
     A.scale(-0.5)
     # Add mass matrix
-    A.axpy(-1/dt, M)
+    A.axpy(-1 / dt, M)
 
-    #Add stiffness matrix
-    A.axpy(0.5*nu, K)
+    # Add stiffness matrix
+    A.axpy(0.5 * nu, K)
 ```
 
 In the next section, we will consider the performance differences for these two strategies
