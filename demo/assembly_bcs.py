@@ -139,7 +139,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict | None = None):
 
         # Add convection term
         start_lhs = time.perf_counter()
-        dolfinx.fem.petsc.assemble_matrix(A, convection_form)
+        dolfinx.fem.petsc.assemble_matrix(A, convection_form)  # type: ignore
         A.assemble()
         A.scale(-0.5)
         A.axpy(1.0 / dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
@@ -182,7 +182,7 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict | None = None):
 
         # Add convection term
         start_lhs_new = time.perf_counter()
-        dolfinx.fem.petsc.assemble_matrix(Ax, convection_form)
+        dolfinx.fem.petsc.assemble_matrix(Ax, convection_form)  # type: ignore
         Ax.assemble()
         Ax.scale(0.5)
         Ax.axpy(1.0 / dt, M, PETSc.Mat.Structure.SUBSET_NONZERO_PATTERN)  # type: ignore
