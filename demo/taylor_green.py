@@ -199,7 +199,6 @@ for n, N in enumerate(inputs.Ns):
     for i in range(num_steps):
         u_time.value += dt
         p_time.value += dt
-        print(i, dt, u_time.value, p_time.value)
         solver.solve(dt, nu, max_iter=1)
         L2_u_loc = dolfinx.fem.assemble_scalar(L2_u)
         error_u = mesh.comm.allreduce(L2_u_loc, op=MPI.SUM)
