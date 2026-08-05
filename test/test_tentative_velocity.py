@@ -20,7 +20,7 @@ def gather_PETScMatrix(
     A: PETSc.Mat,  # type: ignore
     comm: MPI.Comm,
     root: int = 0,
-) -> scipy.sparse.csr_matrix:
+) -> scipy.sparse.csr_matrix | None:
     """
     Given a distributed PETSc matrix, gather in on process 'root' in
     a scipy CSR matrix
@@ -38,6 +38,8 @@ def gather_PETScMatrix(
             (np.hstack(av_all), np.hstack(aj_all), ai_cum),  # type: ignore
             shape=A.getSize(),
         )
+    else:
+        return None
 
 
 def create_tentative_forms(
