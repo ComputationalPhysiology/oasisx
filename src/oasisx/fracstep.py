@@ -156,7 +156,7 @@ class FractionalStep_AB_CN:
         rotational: bool = False,
         solver_options: dict | None = None,
         jit_options: dict | None = None,
-        body_force: ufl.core.expr.Expr | None = None,
+        body_force: ufl.core.expr.Expr | list[float] | None = None,
         options: dict | None = None,
     ):
         self._mesh = mesh
@@ -261,7 +261,7 @@ class FractionalStep_AB_CN:
         # Precompile forms and allocate matrices
         jit_options = {} if jit_options is None else jit_options
         if body_force is None:
-            body_force = (0.0,) * mesh.geometry.dim
+            body_force = list((0.0,) * mesh.geometry.dim)
         self._compile_and_allocate_forms(body_force, jit_options)
 
         # Assemble constant matrices
@@ -274,7 +274,9 @@ class FractionalStep_AB_CN:
         self._solver_u.setOperators(self._A)
         self._solver_u.setOptions(self._A)
 
-    def _compile_and_allocate_forms(self, body_force: ufl.core.expr.Expr, jit_options: dict):
+    def _compile_and_allocate_forms(
+        self, body_force: ufl.core.expr.Expr | list[float], jit_options: dict
+    ):
         dx = ufl.Measure("dx", domain=self._mesh)
         u = ufl.TrialFunction(self._Vi[0][0])
         v = ufl.TestFunction(self._Vi[0][0])
@@ -512,7 +514,7 @@ class FractionalStep_AB_CN:
         Returns the difference between the two solutions and the solver error codes
         """
         diff = 0
-        errors = np.zeros(self._mesh.geometry.dim, dtype=np.int32)
+        errors = np.zeros(self._mesh.geometry.dim, dtype=int)
         for i in range(self._mesh.geometry.dim):
             for bc in self._bcs_u[i]:
                 bc.apply(self._rhs1[i].x.petsc_vec)
@@ -608,7 +610,7 @@ class FractionalStep_AB_CN:
         """
         Compute Velocity update
         """
-        errors = np.zeros(self._mesh.geometry.dim, dtype=np.int32)
+        errors = np.zeros(self._mesh.geometry.dim, dtype=int)
         if self._low_memory:
             for i in range(self._mesh.geometry.dim):
                 # Compute M u^{n-1}
