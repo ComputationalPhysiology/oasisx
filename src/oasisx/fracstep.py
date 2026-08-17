@@ -261,7 +261,7 @@ class FractionalStep_AB_CN:
         # Precompile forms and allocate matrices
         jit_options = {} if jit_options is None else jit_options
         if body_force is None:
-            body_force = (0.0,) * mesh.geometry.dim
+            body_force = ufl.as_tensor((0.0,) * mesh.geometry.dim)
         self._compile_and_allocate_forms(body_force, jit_options)
 
         # Assemble constant matrices
@@ -512,7 +512,7 @@ class FractionalStep_AB_CN:
         Returns the difference between the two solutions and the solver error codes
         """
         diff = 0
-        errors = np.zeros(self._mesh.geometry.dim, dtype=np.int32)
+        errors = np.zeros(self._mesh.geometry.dim, dtype=int)
         for i in range(self._mesh.geometry.dim):
             for bc in self._bcs_u[i]:
                 bc.apply(self._rhs1[i].x.petsc_vec)
@@ -608,7 +608,7 @@ class FractionalStep_AB_CN:
         """
         Compute Velocity update
         """
-        errors = np.zeros(self._mesh.geometry.dim, dtype=np.int32)
+        errors = np.zeros(self._mesh.geometry.dim, dtype=int)
         if self._low_memory:
             for i in range(self._mesh.geometry.dim):
                 # Compute M u^{n-1}
