@@ -43,7 +43,6 @@ class Projector:
     _ksp: _petsc.KSP
     _x: dolfinx.fem.Function  # The solution vector
     _bcs: list[dolfinx.fem.DirichletBC]
-    __slots__ = tuple(__annotations__)
 
     def __init__(
         self,

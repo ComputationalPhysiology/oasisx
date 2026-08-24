@@ -80,8 +80,6 @@ class DirichletBC:
     _bc: _fem.DirichletBC
     _u: _fem.Function | None
 
-    __slots__ = tuple(__annotations__)
-
     def __init__(
         self,
         value: np.float64
@@ -198,7 +196,6 @@ class PressureBC:
     _u: _fem.Function
     _rhs: list[ufl.form.Form]
     _bc: _fem.DirichletBC
-    __slots__ = tuple(__annotations__)
 
     def __init__(
         self,
