@@ -14,7 +14,6 @@ import dolfinx.fem as _fem
 class KSPSolver:
     _prefix: str
     _ksp: _PETSc.KSP  # type: ignore
-    __slots__ = tuple(__annotations__)
 
     def __init__(
         self,

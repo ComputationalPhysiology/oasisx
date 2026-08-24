@@ -143,9 +143,6 @@ class FractionalStep_AB_CN:
     # Mass matrix with bcs applied
     _M_bcs: _PETSc.Mat  # type: ignore
 
-    # Annotate all functions
-    # __slots__ = tuple(__annotations__)
-
     def __init__(
         self,
         mesh: _dmesh.Mesh,
