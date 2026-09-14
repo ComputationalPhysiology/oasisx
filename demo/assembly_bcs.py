@@ -123,9 +123,9 @@ def assembly(mesh, P: int, repeats: int, jit_options: dict | None = None):
     A_sp = dolfinx.fem.create_sparsity_pattern(mass_form)
     A_sp.finalize()
 
-    A = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp)
-    Ax = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp)
-    D = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp)
+    A = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp, None)
+    Ax = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp, None)
+    D = dolfinx.cpp.la.petsc.create_matrix(mesh.comm, A_sp, None)
     D.assemble()
     for i in range(repeats):
         mesh.comm.Barrier()
